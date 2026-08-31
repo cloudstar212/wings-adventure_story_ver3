@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# 별도로 관리되는 문서 (git 추적 제외)
+flying_game_spec.md
+
+# 추출 파이프라인 검수용 contact sheet / 임시 체크 이미지 (로컬 확인용, 실제 게임 자산 아님)
+assets/*_contact_*.png
+assets/*_contact_sheet.png
+assets/backgrounds/chk_*.png
+assets/backgrounds/whale_wide.png
+
+# 배포용 압축 패키지(로컬 전달용, 저장소에는 불필요)
+wings-adventure-release.zip
