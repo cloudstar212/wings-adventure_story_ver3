@@ -19,6 +19,39 @@ const WINGS = [
 ];
 const WING_MAP = Object.fromEntries(WINGS.map(w => [w.id, w]));
 
+// ---------------------------- 스토리 캠페인(19장, GAME_DESIGN_BIBLE_v1.2 §14) ----------------------------
+// wingId: 그 장이 진행되는 지역/배경 테마(assets/background/{wingId}_*, §Ch). 아직 새 날개를
+// 얻지 않은 장은 직전까지 진행된 지역을 그대로 유지한다(예: 2~3장은 basic, 10~13장은 water).
+// 16장 이후(빛의 목소리 정체 공개~엔딩)는 별도 지역 "final"(assets/background/final_*)을 쓴다.
+// img: story/ 폴더의 완성된 8컷 만화(Visual Canon). "계속하기" 버튼과 함께 챕터 진입 시 표시된다.
+// 1챕터 = 비행 1턴을 기본값으로 임시 매핑했다(Bible §21 TBD 항목 - 장당 실제 턴 수는 추후 조정 대상).
+const CHAPTERS = [
+  { n: 1,  title: "깨진 봉인",             wingId: "basic",    img: "story/chapter-01-broken-seal-v3.png" },
+  { n: 2,  title: "첫 번째 전투",          wingId: "basic",    img: "story/chapter-02-first-wing.png" },
+  { n: 3,  title: "빛의 목소리",           wingId: "basic",    img: "story/chapter-03-voice-of-light.png" },
+  { n: 4,  title: "구름 날개",             wingId: "cloud",    img: "story/chapter-04-cloud-wings-v5.png" },
+  { n: 5,  title: "황금 날개",             wingId: "golden",   img: "story/chapter-05-golden-wings.png" },
+  { n: 6,  title: "무지개 날개",           wingId: "rainbow",  img: "story/chapter-06-rainbow-wings.png" },
+  { n: 7,  title: "하늘 날개",             wingId: "sky",      img: "story/chapter-07-sky-wings.png" },
+  { n: 8,  title: "불꽃 날개",             wingId: "flame",    img: "story/chapter-08-flame-wings-v3.png" },
+  { n: 9,  title: "일곱 번째 날개",        wingId: "water",    img: "story/chapter-09-seventh-wing-v2.png" },
+  { n: 10, title: "날개지기의 경고",       wingId: "water",    img: "story/chapter-10-wingkeepers-warning-v3.png" },
+  { n: 11, title: "날개지기 보스전",       wingId: "water",    img: "story/chapter-11-wingkeeper-boss-battle-remake-v2.png", boss: "wing_guardian" },
+  { n: 12, title: "숨겨졌던 과거",         wingId: "water",    img: "story/chapter-12-hidden-past-remake.png" },
+  { n: 13, title: "누구를 믿을 것인가",    wingId: "water",    img: "story/chapter-13-whom-to-trust-v3.png" },
+  { n: 14, title: "마지막 봉인지",         wingId: "electric", img: "story/chapter-14-final-seal.png" },
+  { n: 15, title: "전설의 날개 8/8",       wingId: "electric", img: "story/chapter-15-legendary-wings-8-of-8-v2.png" },
+  { n: 16, title: "빛의 목소리의 정체",    wingId: "final",    img: "story/chapter-16-identity-of-the-light-v2.png" },
+  { n: 17, title: "통제된 평화",           wingId: "final",    img: "story/chapter-17-controlled-peace.png" },
+  { n: 18, title: "여덟 날개의 전투",      wingId: "final",    img: "story/chapter-18-battle-of-eight-wings-v4.png", boss: "angel" },
+  { n: 19, title: "모두에게 날개를",       wingId: "final",    img: "story/chapter-19-wings-for-everyone.png" },
+];
+const CHAPTER_COUNT = CHAPTERS.length;
+function chapterData(n) { return CHAPTERS[clamp(n, 1, CHAPTER_COUNT) - 1]; }
+// 현재 챕터가 진행되는 지역(=배경/장애물/지역 수호자 선택 기준). state.chapter가 아직 없는
+// 저장 데이터(구버전 세이브)는 1장으로 취급한다.
+function currentRegionWingId() { return chapterData(state.chapter || 1).wingId; }
+
 // 캐릭터+날개 원본 일러스트(assets/sprites)에서 추출한 앵커 좌표.
 // ax/ay = 캐릭터 몸통(가슴) 기준점의 이미지 내 상대 위치(0~1). 렌더링 시 이 점을 플레이어 좌표에 맞춘다.
 const WING_ANCHOR = {
@@ -118,94 +151,120 @@ function iconReady(name) {
   return img && img.complete && img.naturalWidth > 0;
 }
 
-// 장애물 테마 6종 x 크기 3단계 x 10개 = 180종 이미지 프리로드.
-// 1~18턴: 테마를 3턴씩(소→중→대) 순서대로 진행, 19턴 이후는 매턴 테마/크기 랜덤.
-const OBSTACLE_THEMES = ["space", "ocean", "dessert", "household", "fruit", "transport"];
-const OBSTACLE_THEME_NAMES = { space: "우주", ocean: "바다", dessert: "디저트", household: "집 안 물건", fruit: "과일", transport: "교통수단" };
-const OBSTACLE_TIERS = ["small", "medium", "large"];
-const OBSTACLE_TIER_NAMES = { small: "작은", medium: "중간", large: "큰" };
-const OBSTACLE_TIER_RADIUS = { small: 22, medium: 32, large: 50 };
-const OBSTACLE_ITEMS_PER_TIER = 10;
-
-const OBSTACLE_SPRITE = {};
-OBSTACLE_THEMES.forEach(theme => {
-  OBSTACLE_SPRITE[theme] = {};
-  OBSTACLE_TIERS.forEach(tier => {
-    OBSTACLE_SPRITE[theme][tier] = [];
-    for (let i = 0; i < OBSTACLE_ITEMS_PER_TIER; i++) {
-      const img = new Image();
-      img.src = `assets/obstacles/${theme}/${tier}/${i}.png`;
-      OBSTACLE_SPRITE[theme][tier].push(img);
-    }
+// 지역별 비행 배경 패럴랙스 3레이어(assets/background/{regionId}_{far,mid,near}.png, §Ch).
+// 8개 날개 지역 + 16장 이후의 "final" 지역(엔딩/최종보스 구간)까지 총 9개 세트.
+// 레이어별로 없는 파일도 있다(예: flame/water는 near 레이어가 없음) - bgImgReady()로
+// 매 프레임 로드 여부만 확인하고, 준비 안 된 레이어는 그냥 건너뛴다(다른 자산과 동일한 패턴).
+const BACKGROUND_REGIONS = [...WINGS.map(w => w.id), "final"];
+const BACKGROUND_SPRITE = {};
+BACKGROUND_REGIONS.forEach(id => {
+  BACKGROUND_SPRITE[id] = {};
+  ["far", "mid", "near"].forEach(layer => {
+    const img = new Image();
+    img.src = `assets/background/${id}_${layer}.png`;
+    BACKGROUND_SPRITE[id][layer] = img;
   });
 });
+function bgImgReady(img) { return img && img.complete && img.naturalWidth > 0; }
 
-function getObstacleStage(turnNumber1Indexed) {
-  if (turnNumber1Indexed <= OBSTACLE_THEMES.length * OBSTACLE_TIERS.length) {
-    const stage = turnNumber1Indexed - 1;
-    return {
-      theme: OBSTACLE_THEMES[Math.floor(stage / OBSTACLE_TIERS.length)],
-      tier: OBSTACLE_TIERS[stage % OBSTACLE_TIERS.length],
-    };
+// 장애물 = 지역(날개)당 10종(assets/obstacles/{wingId}/{0..9}.png, GAME_DESIGN_BIBLE_v1.2 반영,
+// 2026-09 - 원본 시트(obstacle_{wingId}.png, 5열x2행)를 scripts/extract_obstacles_regions.py로
+// 잘라낸 결과). 구 6테마×소/중/대 180장 체계는 폐기 - 19장 캠페인 진행 자체가 난이도 곡선을
+// 담당하므로 크기 변형이 더 이상 필요 없다(§Ch). 히트박스는 지역과 무관하게 고정 반지름 하나.
+const OBSTACLE_RADIUS = 32;
+const OBSTACLE_ICONS_PER_REGION = 10;
+const OBSTACLE_SPRITE = {};
+WINGS.forEach(w => {
+  OBSTACLE_SPRITE[w.id] = [];
+  for (let i = 0; i < OBSTACLE_ICONS_PER_REGION; i++) {
+    const img = new Image();
+    img.src = `assets/obstacles/${w.id}/${i}.png`;
+    OBSTACLE_SPRITE[w.id].push(img);
   }
-  return { theme: pick(OBSTACLE_THEMES), tier: pick(OBSTACLE_TIERS) };
+});
+// "final" 지역(16~19장)은 전용 장애물 이미지가 없어 basic 이미지로 대체한다.
+function regionObstacleArr() {
+  return OBSTACLE_SPRITE[currentRegionWingId()] || OBSTACLE_SPRITE.basic;
 }
 
-// 몬스터 40종(assets/monsters). tier는 §6-1의 5단계 누적 오픈 로직(getAvailableMonsterPool)이
-// 참조하는 값이고, pattern은 전투 중 배회 움직임(updateMonsterWander)을 결정한다.
-// 체력/공격력은 몬스터별 개별 수치를 두지 않고 기존 diff 공식(30 + difficultyLevel()*4)을 그대로 쓴다.
+// 지역 이동 방해 엔티티(assets/effects/asset_effect/{regionId}_asset.png) - cloud/water/electric
+// 3개 지역 전용. 몬스터 공격이 아니라 비행 중 맵에 랜덤 등장하는 필드 장애물로, 배경에 합성하지
+// 않고 다른 비행 엔티티(코인/돈/장애물)와 동일하게 rt.entities에 스크롤되는 독립 개체로 다룬다.
+// 장애물처럼 부딪혀서 사라지지 않고, 반경 안에 있는 동안 데미지 없이 이동속도만 늦추다가
+// 화면 밖으로 스크롤되면 사라진다(§8).
+const HAZARD_REGIONS = ["cloud", "water", "electric"];
+const HAZARD_SPRITE = {};
+HAZARD_REGIONS.forEach(id => {
+  const img = new Image();
+  img.src = `assets/effects/asset_effect/${id}_asset.png`;
+  HAZARD_SPRITE[id] = img;
+});
+const HAZARD_RADIUS = 85;
+const HAZARD_SPEED_MUL = 0.45;
+const HAZARD_SPAWN_MIN = 5, HAZARD_SPAWN_MAX = 9;
+function hazardImgReady() {
+  const img = HAZARD_SPRITE[currentRegionWingId()];
+  return img && img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// 몬스터 = 지역(날개) 수호자 7종(GAME_DESIGN_BIBLE_v1.2 반영, 2026-09).
+// 구 40종 랜덤 로스터는 폐기: 지역마다 elite_{wingId}.png 1종이 "그 지역의 유일한 전투 상대"다.
+// id를 wingId와 동일하게 둬서 currentRegionMonster()가 MONSTER_MAP[currentRegionWingId()]로
+// 바로 조회할 수 있게 한다. basic 지역은 항목이 없다 = 그 지역은 턴 종료 전투 자체가 없다(§Ch).
+// tier는 기존처럼 projectile/thrown/minion 이펙트의 세기(_1~_5) 선택에만 쓰이며, 챕터
+// 진행 순서(구름→황금→무지개→하늘→불꽃→물→전기)를 따라 점진적으로 올렸다.
 const MONSTERS = [
-  // tier 1 (1~4턴)
-  { id: "slime",            name: "슬라임",              sprite: "assets/monsters/slime.png",            pattern: "bounce", tier: 1 },
-  { id: "fire_slime",       name: "불꽃 슬라임",         sprite: "assets/monsters/fire_slime.png",        pattern: "bounce", tier: 1 },
-  { id: "bat",               name: "박쥐",                sprite: "assets/monsters/bat.png",               pattern: "zigzag", tier: 1 },
-  { id: "goblin",            name: "고블린",              sprite: "assets/monsters/goblin.png",            pattern: "pace",   tier: 1 },
-  { id: "ice_slime",        name: "얼음 슬라임",         sprite: "assets/monsters/ice_slime.png",         pattern: "bounce", tier: 1 },
-  { id: "poison_mushroom",  name: "독버섯",              sprite: "assets/monsters/poison_mushroom.png",   pattern: "pace",   tier: 1 },
-  { id: "spider",            name: "거미",                sprite: "assets/monsters/spider.png",            pattern: "zigzag", tier: 1 },
-  { id: "zombie",            name: "좀비",                sprite: "assets/monsters/zombie.png",            pattern: "pace",   tier: 1 },
-
-  // tier 2 (5~8턴)
-  { id: "skeleton_warrior", name: "해골 전사",           sprite: "assets/monsters/skeleton_warrior.png",  pattern: "pace",   tier: 2 },
-  { id: "skeleton_archer",  name: "해골 궁수",           sprite: "assets/monsters/skeleton_archer.png",   pattern: "pace",   tier: 2 },
-  { id: "orc",                name: "오크",                sprite: "assets/monsters/orc.png",               pattern: "pace",   tier: 2 },
-  { id: "werewolf",          name: "늑대인간",            sprite: "assets/monsters/werewolf.png",          pattern: "zigzag", tier: 2 },
-  { id: "viper",              name: "독사",                sprite: "assets/monsters/viper.png",             pattern: "zigzag", tier: 2 },
-  { id: "spiky_cactus",     name: "가시 선인장",         sprite: "assets/monsters/spiky_cactus.png",      pattern: "pace",   tier: 2 },
-  { id: "sticky_blob",      name: "끈적이",              sprite: "assets/monsters/sticky_blob.png",       pattern: "bounce", tier: 2 },
-  { id: "ghost_bat",        name: "유령 박쥐",           sprite: "assets/monsters/ghost_bat.png",         pattern: "hover",  tier: 2 },
-
-  // tier 3 (9~12턴)
-  { id: "mimic",              name: "미믹",                sprite: "assets/monsters/mimic.png",             pattern: "pace",   tier: 3 },
-  { id: "cursed_doll",      name: "저주 인형",           sprite: "assets/monsters/cursed_doll.png",       pattern: "pace",   tier: 3 },
-  { id: "dark_mage",        name: "어둠 마법사",         sprite: "assets/monsters/dark_mage.png",         pattern: "hover",  tier: 3 },
-  { id: "rock_turtle",      name: "바위 거북",           sprite: "assets/monsters/rock_turtle.png",       pattern: "pace",   tier: 3 },
-  { id: "sand_worm",        name: "모래 웜",             sprite: "assets/monsters/sand_worm.png",         pattern: "zigzag", tier: 3 },
-  { id: "bouncy_jellyfish", name: "톡톡 해파리",         sprite: "assets/monsters/bouncy_jellyfish.png",  pattern: "hover",  tier: 3 },
-  { id: "wind_sprite",      name: "바람 스프라이트",     sprite: "assets/monsters/wind_sprite.png",       pattern: "circle", tier: 3 },
-  { id: "lightning_pixie",  name: "번개 픽시",           sprite: "assets/monsters/lightning_pixie.png",   pattern: "zigzag", tier: 3 },
-
-  // tier 4 (13~16턴)
-  { id: "red_ogre",          name: "빨간 머리 오우거",    sprite: "assets/monsters/red_ogre.png",          pattern: "pace",   tier: 4 },
-  { id: "stone_golem",      name: "돌 골렘",             sprite: "assets/monsters/stone_golem.png",       pattern: "pace",   tier: 4 },
-  { id: "armored_boar",     name: "철갑 멧돼지",         sprite: "assets/monsters/armored_boar.png",      pattern: "zigzag", tier: 4 },
-  { id: "bone_dokkaebi",    name: "뼈 도깨비",           sprite: "assets/monsters/bone_dokkaebi.png",     pattern: "pace",   tier: 4 },
-  { id: "night_owl",        name: "밤의 올빼미",         sprite: "assets/monsters/night_owl.png",         pattern: "circle", tier: 4 },
-  { id: "shadow_wraith",    name: "그림자 망령",         sprite: "assets/monsters/shadow_wraith.png",     pattern: "hover",  tier: 4 },
-  { id: "hell_witch",       name: "지옥 마녀",           sprite: "assets/monsters/hell_witch.png",        pattern: "hover",  tier: 4 },
-  { id: "bomb_monster",     name: "폭탄 몬스터",         sprite: "assets/monsters/bomb_monster.png",      pattern: "pace",   tier: 4 },
-
-  // tier 5 (17~20턴, 21턴 이후는 전체 풀)
-  { id: "baby_phoenix",     name: "불사조 새끼",         sprite: "assets/monsters/baby_phoenix.png",      pattern: "circle", tier: 5 },
-  { id: "baby_dragon",      name: "드래곤 새끼",         sprite: "assets/monsters/baby_dragon.png",       pattern: "circle", tier: 5 },
-  { id: "ghost_knight",     name: "유령 기사",           sprite: "assets/monsters/ghost_knight.png",      pattern: "pace",   tier: 5 },
-  { id: "ghost_knight_2",   name: "유령 기사",           sprite: "assets/monsters/ghost_knight_2.png",    pattern: "hover",  tier: 5 },
-  { id: "ice_golem",        name: "얼음 골렘",           sprite: "assets/monsters/ice_golem.png",         pattern: "pace",   tier: 5 },
-  { id: "magma_golem",      name: "마그마 골렘",         sprite: "assets/monsters/magma_golem.png",       pattern: "pace",   tier: 5 },
-  { id: "sea_drake",        name: "바다 드레이크",       sprite: "assets/monsters/sea_drake.png",         pattern: "circle", tier: 5 },
-  { id: "eye_of_doom",      name: "멸망의 눈",           sprite: "assets/monsters/eye_of_doom.png",       pattern: "hover",  tier: 5 },
+  { id: "cloud",    name: "구름 수호자",       sprite: "assets/elite/elite_cloud.png",    pattern: "circle", tier: 1 },
+  { id: "golden",   name: "황금 유적 수호자",   sprite: "assets/elite/elite_golden.png",   pattern: "pace",   tier: 2 },
+  { id: "rainbow",  name: "무지개 수호자",      sprite: "assets/elite/elite_rainbow.png",  pattern: "hover",  tier: 2 },
+  { id: "sky",      name: "하늘 도시 수호자",   sprite: "assets/elite/elite_sky.png",      pattern: "pace",   tier: 3 },
+  { id: "flame",    name: "화산 수호자",        sprite: "assets/elite/elite_flame.png",    pattern: "bounce", tier: 3 },
+  { id: "water",    name: "심해 수호자",        sprite: "assets/elite/elite_water.png",    pattern: "circle", tier: 4 },
+  { id: "electric", name: "번개 폭풍 수호자",   sprite: "assets/elite/elite_electric.png", pattern: "zigzag", tier: 5 },
 ];
 const MONSTER_MAP = Object.fromEntries(MONSTERS.map(m => [m.id, m]));
+
+// ---------------------------- 보스전(11장 날개지기 / 18장 천사, §P2) ----------------------------
+// 승리 조건은 일반 지역 수호자와 동일하게 HP 0(사용자 확정) - 별도 처치 연출 없이 기존
+// applyChargeProjectileHit()의 보상/정산 흐름을 그대로 재사용한다. 스토리상 정화/분리 연출은
+// 스토리 만화가 담당하므로 게임 쪽엔 승리 조건 로직을 더 만들지 않는다.
+const BOSSES = {
+  // 날개지기: "진짜 악당이 아님, 공격보다 회피/방어 중심"(Bible §16) - 빠른 이동 + 주기적
+  // 무적 배리어로 방어적인 인상을 주고, 공격은 배리어를 지면에 깔거나(zone) 직접 쏘는(projectile)
+  // 두 방식을 번갈아 쓴다(사용자 확정).
+  wing_guardian: {
+    id: "wing_guardian", name: "날개지기", sprite: "assets/elite/boss_wing_guardian.png",
+    battleHeight: 190, hpMul: 3, pattern: "zigzag", speedMul: 2.2,
+    attackKind: "wingkeeper_barrier",
+    shieldOnDur: 4, shieldOffDur: 3.5, // 배리어 활성/비활성 주기(초)
+  },
+  // 천사: 8개 날개 능력을 순차 페이즈로 사용(Bible §16, 18장 콘티 순서 - 구름→황금→
+  // 무지개/하늘→불꽃/물→전기). 새 애니메이션을 만들지 않고 기존 지역 수호자 공격에 쓰던
+  // 이펙트 자산·패턴을 그대로 재사용해 페이즈마다 특수 공격이 바뀌게 한다.
+  angel: {
+    id: "angel", name: "천사", sprite: "assets/elite/boss_angel_full.png",
+    battleHeight: 230, hpMul: 5, pattern: "circle", speedMul: 1.3,
+    phaseAttackKinds: ["slowfield", "obstaclePattern", "feint", "obstacleSummon", "projectile", "projectile"],
+    phaseImgPaths: [
+      "assets/effects/zone/wind_vortex.png",       // 구름
+      "assets/effects/thrown/sandstorm_5.png",     // 황금
+      null,                                         // 무지개/하늘 - feint는 이미지 불필요
+      "assets/effects/thrown/lava_chunk_5.png",    // 불꽃
+      "assets/effects/projectile/water_breath_5.png",  // 물
+      "assets/effects/projectile/lightning_bolt_5.png", // 전기
+    ],
+  },
+};
+const BOSS_SPRITE = {};
+Object.keys(BOSSES).forEach(id => {
+  const img = new Image();
+  img.src = BOSSES[id].sprite;
+  BOSS_SPRITE[id] = img;
+});
+// 날개지기 전용 "배리어" 공격(§P2, 기존 8종 몬스터 공격에 없는 신규 조합) 이미지.
+// 전용 자산이 없어 기존 이펙트 중 마법진/화살 느낌이 가장 가까운 것을 재사용한다.
+const BOSS_BARRIER_ZONE_PATH = "assets/effects/zone/wind_vortex.png";
+const BOSS_BARRIER_PROJECTILE_PATH = "assets/effects/projectile/arrow_5.png";
 
 const MONSTER_SPRITE = {};
 MONSTERS.forEach(m => {
@@ -218,51 +277,28 @@ function monsterSpriteReady(id) {
   return img && img.complete && img.naturalWidth > 0;
 }
 
-// 턴 수 기준 5단계 누적 오픈: 1~4턴 tier1, 5~8턴 +tier2, 9~12턴 +tier3, 13~16턴 +tier4,
-// 17~20턴 +tier5, 21턴 이후는 tier1~5 전체(이미 17~20턴에 전부 열려 있으므로 결과는 동일).
-function getAvailableMonsterPool() {
-  const turnNumber = state.turnsCompleted + 1;
-  const openTiers = Math.min(5, Math.ceil(turnNumber / 4));
-  return MONSTERS.filter(m => m.tier <= openTiers);
+// 지역(챕터) 진행에 따라 그 지역 수호자 1종을 그대로 반환한다(§Ch, currentRegionWingId 참조).
+// basic 지역은 MONSTER_MAP에 항목이 없으므로 null을 반환 - 호출부(startTurnEndBattle
+// 진입 여부를 가르는 turnTimer<=0 분기)가 이 경우 전투 자체를 건너뛴다.
+function currentRegionMonster() {
+  return MONSTER_MAP[currentRegionWingId()] || null;
 }
 
-// 몬스터별 전투 이펙트 자산(assets/effects/, §6-1 참조) 매핑.
+// 지역 수호자별 전투 이펙트 자산(assets/effects/, §6-1 참조) 매핑 - id가 곧 wingId다.
 // category는 이펙트 연출 종류(projectile/thrown/minion/zone)를 가리키며, MONSTERS의
 // pattern(배회 움직임)과는 별개 개념이다. projectile/thrown/minion은 5단계 세기별
-// 이미지(_1~_5)가 있어 몬스터 자신의 tier(1~5, MONSTERS 배열 값)를 그대로 세기로
-// 재사용한다 - 티어가 높은 몬스터일수록 자동으로 더 강한 연출 이미지를 쓰게 된다.
+// 이미지(_1~_5)가 있어 그 수호자의 tier(MONSTERS 배열 값)를 그대로 세기로 재사용한다.
 // zone은 세기 단계가 없는 고정 이미지 1장만 존재한다.
-// 여기 없는 몬스터 id는 아직 매칭된 이펙트가 없다는 뜻(effectAssetPath가 null 반환).
+// 여기 없는 지역(rainbow, sky)은 이펙트 자산이 없다는 뜻 - monsterAttackKind()가 대신
+// MONSTERS.pattern(배회 방식)만으로 페인트/몸통박치기를 가른다.
 const EFFECT_ASSETS = {
-  // projectile (assets/effects/projectile/{typeSlug}_{tier}.png)
-  baby_phoenix:     { category: "projectile", typeSlug: "fireball" },
-  baby_dragon:      { category: "projectile", typeSlug: "fireball" },
-  dark_mage:        { category: "projectile", typeSlug: "dark_orb" },
-  lightning_pixie:  { category: "projectile", typeSlug: "lightning_bolt" },
-  skeleton_archer:  { category: "projectile", typeSlug: "arrow" },
-  sea_drake:        { category: "projectile", typeSlug: "water_breath" },
-
-  // thrown (assets/effects/thrown/{typeSlug}_{tier}.png)
-  spiky_cactus: { category: "thrown", typeSlug: "spike" },
-  stone_golem:  { category: "thrown", typeSlug: "boulder" },
-  sand_worm:    { category: "thrown", typeSlug: "sandstorm" },
-  ice_golem:    { category: "thrown", typeSlug: "ice_shard" },
-  magma_golem:  { category: "thrown", typeSlug: "lava_chunk" },
-
-  // minion (assets/effects/minion/{typeSlug}_{tier}.png)
-  spider:      { category: "minion", typeSlug: "baby_spider" },
-  cursed_doll: { category: "minion", typeSlug: "curse_pin" },
-
-  // zone (assets/effects/zone/{typeSlug}.png, 세기 단계 없음)
-  fire_slime:       { category: "zone", typeSlug: "fire_slime_zone" },
-  ice_slime:        { category: "zone", typeSlug: "ice_slime_zone" },
-  poison_mushroom:  { category: "zone", typeSlug: "poison_mushroom_zone" },
-  bouncy_jellyfish: { category: "zone", typeSlug: "jellyfish_zone" },
-  viper:            { category: "zone", typeSlug: "viper_zone" },
-  bomb_monster:     { category: "zone", typeSlug: "bomb_zone" },
-  eye_of_doom:      { category: "zone", typeSlug: "eye_of_doom_zone" },
-  sticky_blob:      { category: "zone", typeSlug: "sticky_puddle" },
-  wind_sprite:      { category: "zone", typeSlug: "wind_vortex" },
+  cloud:    { category: "zone",       typeSlug: "wind_vortex" },   // 바람 소용돌이 → 슬로우필드
+  golden:   { category: "thrown",     typeSlug: "sandstorm" },     // 사막 유적 모래폭풍 → 장애물패턴
+  sky:      { category: "thrown",     typeSlug: "boulder" },       // 공중 도시 파편 투척 → 장애물소환
+  flame:    { category: "thrown",     typeSlug: "lava_chunk" },    // 화산 용암 덩이 → 장애물소환
+  water:    { category: "projectile", typeSlug: "water_breath" }, // 물줄기 투사체
+  electric: { category: "projectile", typeSlug: "lightning_bolt" }, // 번개 투사체
+  // rainbow: 매핑 없음 → pattern("hover") 기준 feint(페인트)로 자동 분류
 };
 
 // monsterId(+선택적으로 세기로 쓸 tier, 기본값은 그 몬스터 자신의 MONSTERS.tier)를
@@ -336,6 +372,13 @@ const ITEM_KEYS_2P_P2 = ["1", "2", "3", "4"];
 const DIGIT_TO_ITEM_INDEX_P1 = { Digit7: 0, Digit8: 1, Digit9: 2, Digit0: 3 };
 const SAVE_KEY = "wingsAdventureSave_v1";
 
+// ---------------------------- 임시 QA 테스트 모드(§신규-날개2, 사용자 요청) ----------------------------
+// 날개 획득 방식 변경(트로피->지역 수호자 처치) 검증을 빠르게 반복하기 위한 임시 장치.
+// true인 동안 플레이어는 목숨이 전혀 줄지 않는다(장애물/몬스터 공격 모두 무효, loseLife/
+// resolveMonsterHit 맨 앞에서 막음). 검증이 끝나면 false로 되돌리거나 이 플래그 및
+// index.html/style.css의 관련 버튼 3개(.debug-btn)를 함께 제거할 것.
+const DEBUG_MODE = true;
+
 // 우편 편지 목록. apply()는 편지를 읽는 즉시 실행된다.
 const LETTERS = [
   {
@@ -406,6 +449,8 @@ function defaultState() {
     hasStartedBefore: false,
     hasChosenPlayerCount: false, // 최초 인원수/캐릭터 선택 플로우 게이팅
     playerCount: 1,
+    chapter: 1,              // 현재 진행 중인 스토리 챕터(1~19, §Ch)
+    chapterImageShown: false, // 이번 챕터의 스토리 컷신을 이미 봤는지(방 진입 시 1회만 표시)
     money: 2,
     coins: 2,
     gems: 2,
@@ -474,7 +519,7 @@ function toast(msg) {
 const MODAL_IDS = [
   "modal-drink", "modal-wingselect", "modal-monkey", "modal-weather",
   "modal-gameover", "modal-mail", "modal-hide", "modal-settlement",
-  "modal-playercount", "modal-charselect", "modal-keybind",
+  "modal-playercount", "modal-charselect", "modal-keybind", "modal-story",
 ];
 function isAnyModalOpen() {
   return MODAL_IDS.some(id => !document.getElementById(id).classList.contains("hidden"));
@@ -496,15 +541,47 @@ function switchScene(name) {
   if (name === "room") {
     fitStage("room");
     renderRoom();
-    if (state.mailFlags.gemboxDangerQueued) {
-      state.mailFlags.gemboxDangerQueued = false;
-      saveState();
-      startGemboxDanger();
+    // 스토리 인트로와 보석함 위기 모달이 동시에 뜨지 않도록, 인트로를 띄웠으면 위기 모달은
+    // 인트로를 닫을 때(closeChapterIntro) 이어서 처리한다.
+    if (!maybeShowChapterIntro()) {
+      if (state.mailFlags.gemboxDangerQueued) {
+        state.mailFlags.gemboxDangerQueued = false;
+        saveState();
+        startGemboxDanger();
+      }
     }
   }
   if (name === "shop") { fitStage("shop"); renderShop(); }
   if (name === "flight") { /* handled by startFlight() */ }
 }
+
+/* ---------------------------- 스토리 챕터 인트로(§Ch) ---------------------------- */
+// 온보딩(인원수/캐릭터/음료/날개 선택)이 전부 끝난 뒤에만 표시한다 - 최초 부팅 시의
+// switchScene("room")은 onboarding 모달들이 뜨기 전에 먼저 호출되므로 hasStartedBefore로
+// 게이팅해 그 시점엔 뜨지 않게 막는다. true를 반환하면 이번 room 진입에서 인트로를 띄웠다는 뜻.
+function maybeShowChapterIntro() {
+  if (!state.hasChosenPlayerCount || !state.hasStartedBefore) return false;
+  if (state.chapterImageShown) return false;
+  openChapterIntro();
+  return true;
+}
+function openChapterIntro() {
+  const ch = chapterData(state.chapter);
+  document.getElementById("story-title").textContent = `${ch.n}장. ${ch.title}`;
+  document.getElementById("story-img").src = ch.img;
+  document.getElementById("modal-story").classList.remove("hidden");
+}
+document.getElementById("btn-story-continue").addEventListener("click", () => {
+  state.chapterImageShown = true;
+  saveState();
+  document.getElementById("modal-story").classList.add("hidden");
+  // 인트로 때문에 미뤄뒀던 보석함 위기 이벤트가 있으면 이제 처리한다.
+  if (state.mailFlags.gemboxDangerQueued) {
+    state.mailFlags.gemboxDangerQueued = false;
+    saveState();
+    startGemboxDanger();
+  }
+});
 
 // 방/상점 배경 일러스트(1536x1024)를 object-fit:contain처럼 정확히 맞추고,
 // 그 위의 핫스팟 버튼들이 픽셀 단위로 정렬되도록 stage-fit 레이어 크기를 계산한다.
@@ -563,23 +640,14 @@ function addGems(n, playerIdx) {
     state.trophies += 1;
     state.totalTrophies += 1;
     toast("🏆 보석 20개 모아 트로피 획득!");
+    // 날개는 더 이상 트로피로 교환하지 않는다(§신규-날개2 사용자 확정) - 대신 각 지역
+    // 수호자를 처치하면 그 지역 날개를 바로 획득한다(applyChargeProjectileHit 참고).
+    // 트로피는 순수 수집 마일스톤으로 남기고 10개마다 그대로 리셋만 한다.
     while (state.trophies >= 10) {
       state.trophies -= 10;
-      grantRandomWing(playerIdx);
+      toast("🎖️ 트로피 10개 달성!");
     }
   }
-}
-
-function grantRandomWing(playerIdx) {
-  const unowned = WINGS.filter(w => !state.ownedWings.includes(w.id));
-  if (unowned.length === 0) {
-    (wallet(playerIdx) || state).coins += 20;
-    toast("🎁 모든 날개를 이미 보유! 대신 코인 +20 지급");
-    return;
-  }
-  const wing = pick(unowned);
-  state.ownedWings.push(wing.id);
-  toast(`🪽 트로피 10개 달성! [${wing.name}] 획득!`);
 }
 
 function addCoins(n, playerIdx) {
@@ -608,6 +676,7 @@ function grantRandomItem(playerIdx) {
 // 전환해 이동/공격/아이템/충돌에서 제외하고, 살아있는 다른 플레이어는 계속 플레이한다. 사망한
 // 플레이어는 다음 방 화면 진입 시(endFlightTurn -> reviveDeadPlayers) 부활한다.
 function loseLife(amount, reason, playerIdx) {
+  if (DEBUG_MODE) return false; // QA 테스트 모드: 목숨 무적(§신규-날개2)
   const g = wallet(playerIdx) || state;
   const p = playerAt(playerIdx || 1);
   if (p.dead) return false; // 이미 사망한 플레이어는 추가 피해를 받지 않는다
@@ -669,7 +738,22 @@ function activeCharacterId() {
   return state.roomActivePlayer === 2 ? state.p2CharacterId : state.p1CharacterId;
 }
 
+// 방 배경 이미지(§Ch, room/room_{0..9}.png): 벽의 "나의 날개 컬렉션" 그림이 실제 보유 날개
+// 수(N)에 맞춰 아이콘 N개를 보여주도록 미리 그려진 10장짜리 시퀀스다(0/1장은 아이콘 없이
+// 막 날기 시작한 연출, 2~8장은 보유 날개 아이콘이 하나씩 늘어남). 19장 엔딩 이후엔 8장
+// 전부가 빈 명패로 바뀐 9번 그림으로 고정 - "누구도 날개를 소유하지 않는다"는 결말을
+// 코드로 별도 구현하지 않고 이 배경 한 장 교체만으로 표현한다(Bible §11, §22).
+function hasReachedEnding() {
+  return state.chapter >= CHAPTER_COUNT && state.chapterImageShown;
+}
+function roomImageSrc() {
+  if (hasReachedEnding()) return "room/room_9.png";
+  const n = clamp(state.ownedWings.length, 0, 8);
+  return `room/room_${n}.png`;
+}
+
 function renderRoom() {
+  document.getElementById("room-bg-img").src = roomImageSrc();
   updateAllHUD();
   document.getElementById("gembox-badge").textContent = `💎 ${activeWallet().gems} / 20`;
   document.getElementById("trophy-badge").textContent = `🏆 ${state.trophies} / 10`;
@@ -857,6 +941,7 @@ function finishFirstEntryFlow() {
   state.hasStartedBefore = true;
   saveState();
   renderRoom();
+  maybeShowChapterIntro(); // 온보딩 직후 1장 인트로 표시(§Ch)
 }
 
 // 최초 진입 흐름(§2,3): 인원수 선택 -> 캐릭터 선택(1P, 2P면 P1/P2 순서) -> 기존 음료/날개
@@ -1393,8 +1478,6 @@ let rt = {
   bgOffset: 0,
   paused: false,
   turnGemBonusOnKill: false,
-  obstacleTheme: "space",
-  obstacleTier: "small",
   combo: 0,           // 코인 연속 획득 콤보. 목숨이 감소하는 순간에만 0으로 리셋(resetCombo). 1P/2P 공용.
   magnetActive: false, // 콤보 10 달성 시 true. 시간제 아님 - 콤보가 리셋될 때까지 유지
   particles: [],       // 코인/돈 획득 피드백 파티클
@@ -1798,7 +1881,7 @@ function initPlayers() {
 function startFlight() {
   applyPendingCharacterChanges();
   rt.entities = [];
-  rt.spawnT = { coin: 0, money: 0.4, obstacle: 0.8 };
+  rt.spawnT = { coin: 0, money: 0.4, obstacle: 0.8, hazard: rand(HAZARD_SPAWN_MIN, HAZARD_SPAWN_MAX) };
   rt.turnTimer = 30; // TODO: 테스트용 임시 단축값(원래 60초). 완성 후 60으로 되돌릴 것.
   rt.battles = [];
   rt.clouds = [];
@@ -1814,11 +1897,6 @@ function startFlight() {
   comboDisplayShownCombo = -1;
   comboDisplayTier = 0;
   if (comboPopTimeoutId) { clearTimeout(comboPopTimeoutId); comboPopTimeoutId = null; }
-
-  const stage = getObstacleStage(state.turnsCompleted + 1);
-  rt.obstacleTheme = stage.theme;
-  rt.obstacleTier = stage.tier;
-  toast(`🪨 이번 턴 장애물: ${OBSTACLE_THEME_NAMES[stage.theme]} (${OBSTACLE_TIER_NAMES[stage.tier]} 크기)`);
 
   rt.turnGemBonusOnKill = state.mailFlags.nextTurnGemBonus;
   state.mailFlags.nextTurnGemBonus = false;
@@ -1847,6 +1925,7 @@ function endFlightTurn() {
   restRemaining = 300;
   state.fridgeDrinks = Math.min(5, state.fridgeDrinks + 1);
   reviveDeadPlayers(); // §신규-2: 다음 방 화면 진입 시점에 사망한 플레이어를 부활시킨다
+  advanceChapter(); // §Ch: 비행 1턴 완료 = 다음 스토리 챕터로 진행(19장에서 정지)
   if (!state.mailbox.hasLetter) {
     // 2P는 편지 2통(플레이어별 독립 추첨)을, 1P는 기존처럼 1통만 미리 뽑아 둔다(§신규-4).
     state.mailbox = state.playerCount === 2
@@ -1856,6 +1935,15 @@ function endFlightTurn() {
   saveState();
   toast("⏱️ 비행 턴 종료! 방으로 귀환합니다. (상점 우편함을 확인해보세요)");
   switchScene("room");
+}
+
+// 비행 1턴 완료 = 다음 챕터로 진행(임시 매핑, §Ch 상단 주석 참조). 19장(엔딩)에서는 더
+// 진행하지 않는다 - 19장 이후 엔딩 처리(빈 날개 전시대 등)는 별도 단계에서 구현한다.
+function advanceChapter() {
+  if (state.chapter < CHAPTER_COUNT) {
+    state.chapter += 1;
+    state.chapterImageShown = false;
+  }
 }
 
 // 사망 상태(§신규-2)로 전투가 끝난 플레이어를 다음 방 화면 진입 시점에 되돌린다. 목숨을
@@ -1972,6 +2060,25 @@ document.getElementById("btn-exit-flight").addEventListener("click", () => {
   if (currentScene !== "flight") return;
   endFlightTurn();
 });
+
+// QA 테스트 버튼 3개(§신규-날개2) - DEBUG_MODE 주석 참조.
+document.getElementById("btn-debug-next-chapter").addEventListener("click", () => {
+  advanceChapter();
+  saveState();
+  renderRoom();
+  maybeShowChapterIntro();
+});
+document.getElementById("btn-debug-goto-elite").addEventListener("click", () => {
+  if (currentScene !== "flight" || inBattle()) return;
+  startTurnEndBattle();
+});
+document.getElementById("btn-debug-skip-boss").addEventListener("click", () => {
+  if (!inBattle()) return;
+  for (const b of [...rt.battles]) {
+    b.shieldActive = false; // 날개지기 배리어 중이어도 즉시 승리 처리되도록 무시
+    applyChargeProjectileHit(b, { x: b.x, y: b.y, dmg: 999999, angle: 0, stage: "full" }, 1);
+  }
+});
 document.querySelectorAll(".weather-choice").forEach(btn => {
   btn.addEventListener("click", () => {
     rt.weather = btn.dataset.weather;
@@ -1995,7 +2102,7 @@ const PERSPECTIVE_RAMP_SEC = 1.3;
 const COIN_ZIGZAG_CHANCE = 0.2;
 
 // 장애물 플러리시: 스폰되는 장애물 중 일정 비율은 회전 또는 scale 펄스(순수 시각 효과,
-// 충돌판정용 e.r/OBSTACLE_TIER_RADIUS에는 영향 없음) 연출을 갖는다.
+// 충돌판정용 e.r/OBSTACLE_RADIUS에는 영향 없음) 연출을 갖는다.
 const OBSTACLE_FLOURISH_CHANCE = 0.3;
 
 // 코인 편대: 아주 가끔 코인 5~8개가 하트/별 모양으로 한 번에 스폰된다.
@@ -2165,9 +2272,9 @@ function spawnEntity(type) {
   const base = { type, x: vw() + 30, y, r: 20, born: performance.now() };
   if (type === "money") { base.baseR = 18; base.vy = rand(-8, 8); }
   else if (type === "obstacle") {
-    base.baseR = OBSTACLE_TIER_RADIUS[rt.obstacleTier];
+    base.baseR = OBSTACLE_RADIUS;
     base.vy = rand(-20, 20);
-    base.obstacleIdx = Math.floor(Math.random() * OBSTACLE_ITEMS_PER_TIER);
+    base.obstacleIdx = Math.floor(Math.random() * OBSTACLE_ICONS_PER_REGION);
     if (Math.random() < OBSTACLE_FLOURISH_CHANCE) {
       base.flourish = Math.random() < 0.5 ? "spin" : "pulse";
       if (base.flourish === "spin") {
@@ -2179,6 +2286,12 @@ function spawnEntity(type) {
         base.pulseAmp = rand(0.12, 0.22);
       }
     }
+  }
+  else if (type === "hazard") {
+    base.baseR = HAZARD_RADIUS;
+    base.vy = rand(-10, 10);
+    base.rotation = rand(0, Math.PI * 2);
+    base.spinSpeed = rand(0.3, 0.6) * (Math.random() < 0.5 ? -1 : 1); // 소용돌이처럼 천천히 회전
   }
   if (base.baseR != null) {
     base.scale = PERSPECTIVE_SCALE_START;
@@ -2231,6 +2344,15 @@ function updateSpawns(dt) {
     if (rt.spawnT.obstacle <= 0) { spawnEntity("obstacle"); rt.spawnT.obstacle = obstacleInterval * rand(0.8, 1.2); }
   }
 
+  // 지역 이동 방해 엔티티(§8) - cloud/water/electric 지역에서만 스폰
+  if (HAZARD_REGIONS.includes(currentRegionWingId())) {
+    rt.spawnT.hazard -= dt;
+    if (rt.spawnT.hazard <= 0) {
+      spawnEntity("hazard");
+      rt.spawnT.hazard = rand(HAZARD_SPAWN_MIN, HAZARD_SPAWN_MAX);
+    }
+  }
+
   updateRainbowBridge(dt);
 
   // 구름 날개용 은신 구름 - 2P는 둘 중 한 명이라도 구름 날개면 스폰(공용 화면 연출).
@@ -2269,6 +2391,13 @@ function updatePlayerMovement(p, dt) {
   for (const b of rt.battles) {
     if (b.slowField && Math.hypot(p.x - b.slowField.x, p.y - b.slowField.y) < b.slowField.r) {
       speed *= SLOWFIELD_SPEED_MUL;
+      break;
+    }
+  }
+  // 지역 이동 방해 엔티티(§8) - 데미지 없이 반경 안에서만 이동속도를 늦춘다.
+  for (const e of rt.entities) {
+    if (e.type === "hazard" && Math.hypot(p.x - e.x, p.y - e.y) < e.r) {
+      speed *= HAZARD_SPEED_MUL;
       break;
     }
   }
@@ -2320,6 +2449,12 @@ function updatePlayerMovement(p, dt) {
 
 function update(dt) {
   if (rt.paused) return; // 아이템(원숭이) 사용 등으로 일시정지된 경우 전체 로직 정지
+
+  if (DEBUG_MODE) {
+    const battling = inBattle();
+    document.getElementById("btn-debug-goto-elite").classList.toggle("hidden", battling);
+    document.getElementById("btn-debug-skip-boss").classList.toggle("hidden", !battling);
+  }
 
   for (const p of rt.players) updatePlayerMovement(p, dt);
   // 자석은 더 이상 시간제가 아니라 콤보가 리셋될 때 resetCombo()에서 함께 꺼진다.
@@ -2375,6 +2510,11 @@ function updateEntities(dt) {
     e.y += (e.vy || 0) * dt;
     e.y = clamp(e.y, 30, vh() - 30);
 
+    // 지역 이동 방해 엔티티 회전(순수 시각 효과)
+    if (e.type === "hazard") {
+      e.rotation = (e.rotation || 0) + e.spinSpeed * dt;
+    }
+
     // 장애물 플러리시(순수 시각 효과 — e.r/충돌판정에는 관여하지 않음)
     if (e.flourish === "spin") {
       e.rotation = (e.rotation || 0) + e.spinSpeed * dt;
@@ -2406,6 +2546,9 @@ function updateEntities(dt) {
 
   rt.entities = rt.entities.filter(e => {
     if (e.x < -50) return false; // 코인을 놓쳐도 콤보는 리셋되지 않음(목숨 감소 시에만 리셋, §5-4-1)
+    // 이동 방해 엔티티(§8)는 "줍는" 대상이 아니다 - 부딪혀도 사라지지 않고, 화면 밖으로
+    // 나갈 때만 제거된다. 감속 효과는 updatePlayerMovement()에서 매 프레임 별도로 체크한다.
+    if (e.type === "hazard") return true;
     // 여러 플레이어 중 실제로 반경 안에 들어온 가장 가까운 쪽이 줍는다(§6, 보상 중복 없음 -
     // 엔티티 하나당 정확히 한 명에게만 적용).
     let picker = null, pd = Infinity;
@@ -2480,9 +2623,9 @@ function spawnFloatText(x, y, text, color) {
 /* ---------------------------- 전투(Battle) ---------------------------- */
 
 // 비행 중 몬스터가 랜덤 스폰되는 로직은 완전히 제거되었다. 대신 rt.turnTimer가 0에
-// 도달하면(§3-4) 이 함수가 호출되어 곧바로 턴 종료 전투로 진입한다. 몬스터는 그 시점에
-// 열려 있는 티어 풀(getAvailableMonsterPool, §6-1)에서 무작위로 뽑는다. 체력/공격력은
-// 몬스터별 개별 수치 없이 기존 diff 공식을 그대로 쓴다 - 티어는 등장 "풀"만 넓힐 뿐이다.
+// 도달하면(§3-4) 이 함수가 호출되어 곧바로 턴 종료 전투로 진입한다. 몬스터는 현재
+// 챕터의 지역 수호자 1종으로 고정된다(currentRegionMonster, §Ch) - basic 지역은 수호자가
+// 없어 전투 자체가 없다. 체력/공격력은 몬스터별 개별 수치 없이 기존 diff 공식을 그대로 쓴다.
 // MONSTER_HP_MULTIPLIER: 공격력/이동속도는 그대로 두고 체력만 일괄 6배로 올린다.
 const MONSTER_HP_MULTIPLIER = 6;
 // 1인 플레이는 기존처럼 몬스터 1마리, 2인 플레이는 매 턴 2마리(§5) - 서로 독립된 HP/위치/
@@ -2491,15 +2634,37 @@ function monsterCountForPlayerCount() {
   return state.playerCount === 2 ? 2 : 1;
 }
 function startTurnEndBattle() {
+  const bossId = chapterData(state.chapter).boss;
+  if (bossId) { startBossBattle(bossId); return; } // 11장/18장: 지역 수호자 대신 보스전(§P2)
+  const monster = currentRegionMonster();
+  if (!monster) { endFlightTurn(); return; } // basic 지역: 수호자 없음, 전투 없이 바로 턴 종료(§Ch)
   const count = monsterCountForPlayerCount();
   const names = [];
   for (let i = 0; i < count; i++) {
-    const monster = pick(getAvailableMonsterPool());
     const hp = (30 + difficultyLevel() * 4) * MONSTER_HP_MULTIPLIER;
     startBattle({ id: monster.id, name: monster.name, pattern: monster.pattern, hp, maxHp: hp }, i, count);
     names.push(monster.name);
   }
   toast(`⏰ 비행 시간 종료! ${names.join(", ")} 등장! 모두 처치해야 방으로 돌아갈 수 있습니다!`);
+}
+
+// 보스전(§P2) - 인원수와 무관하게 항상 1마리(2P여도 둘이 힘을 합쳐 같은 보스를 상대).
+// startBattle()이 만든 표준 battle 객체(b)에 보스 전용 필드만 덧붙인다 - hp/보상/렌더 파이프라인은
+// 기존 것을 그대로 재사용(§P2 사용자 확정: 승리 조건은 그냥 HP 0).
+function startBossBattle(bossId) {
+  const boss = BOSSES[bossId];
+  const hp = (30 + difficultyLevel() * 4) * MONSTER_HP_MULTIPLIER * boss.hpMul;
+  startBattle({ id: null, name: boss.name, pattern: boss.pattern, hp, maxHp: hp }, 0, 1);
+  const b = rt.battles[rt.battles.length - 1];
+  b.bossId = bossId;
+  b.attackKind = boss.attackKind || null; // phaseAttackKinds가 있으면(천사) 매 캐스트마다 갱신됨
+  b.phaseIdx = 0;
+  b.wanderSeed *= boss.speedMul;
+  if (boss.shieldOnDur) {
+    b.shieldActive = false;
+    b.shieldTimer = boss.shieldOffDur;
+  }
+  toast(`👑 ${boss.name} 등장! 처치해야 방으로 돌아갈 수 있습니다!`);
 }
 
 // 몬스터가 전투 중 배회할 수 있는 영역: 화면 우측 절반으로 제한(플레이어는 기존과 동일하게
@@ -2699,6 +2864,10 @@ function releaseCharge(playerIdx) {
 // releaseCharge()에 있던 즉시 데미지/처치 처리를 그대로 옮겨왔다. ownerIdx는 이 투사체를
 // 쏜 플레이어(§7) - 처치 보상은 그 플레이어에게만 지급된다(§5, 보상 중복 없음).
 function applyChargeProjectileHit(b, pr, ownerIdx) {
+  if (b.shieldActive) { // 날개지기 배리어 활성 중엔 데미지가 통하지 않는다(§P2)
+    spawnFloatText(pr.x, pr.y - 20, "막힘!", "#8ec9ff");
+    return;
+  }
   b.hp -= pr.dmg;
   spawnFloatText(pr.x, pr.y - 20, `-${Math.round(pr.dmg)}`, pr.stage === "full" ? "#ffcf3f" : "#fff");
 
@@ -2716,6 +2885,13 @@ function applyChargeProjectileHit(b, pr, ownerIdx) {
     (wallet(ownerIdx) || state).money += 3;
     playerAt(ownerIdx).invuln = 1.2;
     let rewardMsg = `⚔️ 몬스터 처치! 보상: 🪙${coinReward} 💰3`;
+    // 날개 획득 방식 변경(사용자 확정, §신규-날개2): 트로피 교환이 아니라 그 지역 수호자를
+    // 처치하면 그 지역 날개를 바로 획득한다. MONSTERS의 id가 곧 wingId라(§Ch) 별도 매핑 없이
+    // b.monsterId를 그대로 쓴다 - 보스(bossId가 있음, monsterId는 null)는 대상에서 제외.
+    if (!b.bossId && b.monsterId && WING_MAP[b.monsterId] && !state.ownedWings.includes(b.monsterId)) {
+      state.ownedWings.push(b.monsterId);
+      rewardMsg += ` 🪽[${WING_MAP[b.monsterId].name}] 획득!`;
+    }
     if (rt.turnGemBonusOnKill) {
       rt.turnGemBonusOnKill = false;
       addGems(1, ownerIdx);
@@ -2734,6 +2910,7 @@ function applyChargeProjectileHit(b, pr, ownerIdx) {
 // 게임오버)한다. 몸통박치기/투사체/장판 등 모든 공격 패턴(§6-3)이 이 함수를 공유한다.
 // hitIdx는 playerHitAt()이 찾아준 "실제로 맞은 플레이어"(1|2, 생략 시 1P).
 function resolveMonsterHit(b, hitIdx) {
+  if (DEBUG_MODE) return; // QA 테스트 모드: 목숨 무적(§신규-날개2)
   const p = playerAt(hitIdx || 1);
   if (p.dead || p.invuln > 0) return; // 사망/무적 중엔 회피(§신규-2 - playerHitAt이 이미 사망자를 걸러주지만 이중 방어)
   if (effectiveWing(p.playerIdx) === "rainbow" && b && !b.shieldUsed) {
@@ -2922,7 +3099,7 @@ function updateFeintState(b, dt) {
 const BASE_ATTACK_TRAVEL_SPEED = 150; // 대형(원형/다이아몬드/벽 등)이 왼쪽으로 이동하는 속도(px/s)
 
 function pickObstacleImage() {
-  const arr = (OBSTACLE_SPRITE[rt.obstacleTheme] || {})[rt.obstacleTier];
+  const arr = regionObstacleArr();
   return arr && arr.length ? pick(arr) : null;
 }
 
@@ -3194,6 +3371,18 @@ function updateMonsterBodyContact(b) {
 }
 
 function updateBattle(b, dt) {
+  // 날개지기 배리어(§P2): 켜짐/꺼짐을 주기적으로 반복한다 - 켜진 동안은 공격이 통하지 않는다
+  // (applyChargeProjectileHit에서 확인). 결계를 뚫는 타이밍을 노려야 하는 방어 중심 보스 연출.
+  if (b.shieldTimer != null) {
+    b.shieldTimer -= dt;
+    if (b.shieldTimer <= 0) {
+      const boss = BOSSES[b.bossId];
+      b.shieldActive = !b.shieldActive;
+      b.shieldTimer = b.shieldActive ? boss.shieldOnDur : boss.shieldOffDur;
+      toast(b.shieldActive ? "🛡️ 날개지기가 결계를 펼쳤습니다!" : "💥 결계가 풀렸습니다! 지금 공격하세요!");
+    }
+  }
+
   const wasDashing = !!b.dash;
   if (b.dash) updateBodySlam(b, dt); else updateMonsterWander(b, dt);
   // 몸통박치기(dash) 중엔 그 전용 충돌(BODY_SLAM_HIT_RADIUS, resolveMonsterHit)이 이미
@@ -3264,9 +3453,33 @@ function updateBattle(b, dt) {
         b.specialAttackTimer = 0.6;
       } else {
         b.specialAttackBusy = true;
-        const path = effectAssetPath(b.monsterId);
+        let path = effectAssetPath(b.monsterId);
+        // 천사(§P2): 캐스트마다 날개 페이즈를 한 칸씩 돌려 그 날개의 공격 종류/이미지로
+        // attackKind와 path를 덮어쓴다 - 8개 날개 능력을 순차적으로 쓰는 연출(기존 지역
+        // 수호자 공격 자산 재사용, 새 애니메이션 없음).
+        if (b.bossId && BOSSES[b.bossId].phaseAttackKinds) {
+          const boss = BOSSES[b.bossId];
+          b.attackKind = boss.phaseAttackKinds[b.phaseIdx % boss.phaseAttackKinds.length];
+          path = boss.phaseImgPaths[b.phaseIdx % boss.phaseImgPaths.length];
+          b.phaseIdx += 1;
+        }
         if (path) getEffectImage(path);
-        if (b.attackKind === "charge") {
+        if (b.attackKind === "wingkeeper_barrier") {
+          // 날개지기(§P2): 배리어를 지면에 깔거나(zone) 직접 쏘는(projectile) 두 방식을
+          // 절반 확률로 번갈아 쓴다(사용자 확정) - 전용 자산이 없어 기존 이펙트를 재사용.
+          const tp = targetPlayer(b);
+          if (Math.random() < 0.5) {
+            getEffectImage(BOSS_BARRIER_PROJECTILE_PATH);
+            const angle = Math.atan2(tp.y - b.y, tp.x - b.x);
+            b.monsterProjectiles.push({
+              x: b.x, y: b.y, vx: Math.cos(angle) * MONSTER_PROJECTILE_SPEED, vy: Math.sin(angle) * MONSTER_PROJECTILE_SPEED,
+              angle, imgPath: BOSS_BARRIER_PROJECTILE_PATH, hitRadius: MONSTER_PROJECTILE_HIT_RADIUS, source: "special",
+            });
+          } else {
+            getEffectImage(BOSS_BARRIER_ZONE_PATH);
+            b.zone = { x: tp.x, y: tp.y, r: ZONE_RADIUS, t: 0, imgPath: BOSS_BARRIER_ZONE_PATH };
+          }
+        } else if (b.attackKind === "charge") {
           b.dash = { phase: "out", t: 0, fromX: b.x, fromY: b.y, hasHit: false };
         } else if (b.attackKind === "projectile" || b.attackKind === "obstacleSummon") {
           const speed = b.attackKind === "projectile" ? MONSTER_PROJECTILE_SPEED : OBSTACLE_THROW_SPEED;
@@ -3376,6 +3589,20 @@ function drawWarningMark(x, y, r) {
   ctx.restore();
 }
 
+// 배경 레이어 1장을 canvas(w x h) 전체를 덮도록 확대해 그리되, 가장자리가 절대 비지 않도록
+// 여유분(18%)을 두고 그 여유 범위 안에서만 좌우로 완만하게 왕복시킨다(사인파, speedMul이
+// 클수록 빠르게 - 레이어별로 다르게 줘 원근감 있는 패럴랙스를 만든다). 이음매 없는 반복
+// 타일이 아니라 한 장짜리 완성 일러스트라 무한 스크롤 대신 이 방식을 쓴다.
+function drawBackgroundLayer(img, w, h, speedMul) {
+  if (!bgImgReady(img)) return;
+  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight) * 1.18;
+  const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+  const slackX = dw - w;
+  const baseX = (w - dw) / 2; // = -slackX/2
+  const offsetX = slackX > 0 ? (slackX / 2) * Math.sin(rt.bgOffset * speedMul * 0.02) : 0;
+  ctx.drawImage(img, baseX + offsetX, (h - dh) / 2, dw, dh);
+}
+
 function render() {
   ctx.clearRect(0, 0, cw(), ch()); // 물리적 canvas 전체를 지운다(카메라 확대 전 좌표계)
 
@@ -3385,18 +3612,29 @@ function render() {
   ctx.scale(cameraScale(), cameraScale());
   const w = vw(), h = vh();
 
-  // 하늘 배경 (구름 날개는 더 높은 고도 느낌으로 밝게)
-  const isCloudWing = anyPlayerHasWing("cloud");
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  if (isCloudWing) { g.addColorStop(0, "#bfe4ff"); g.addColorStop(1, "#eaf7ff"); }
-  else { g.addColorStop(0, "#3f7fc9"); g.addColorStop(1, "#bfe4ff"); }
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
+  // 지역별 배경(§Ch): 현재 챕터 지역의 far/mid/near 3레이어를 그린다. 로딩 전이거나 그 지역
+  // 자산이 없으면(이론상 없음 - 9개 지역 전부 세트가 있음) 기존 그라디언트 하늘로 대체한다.
+  const bgSet = BACKGROUND_SPRITE[currentRegionWingId()] || BACKGROUND_SPRITE.basic;
+  const bgAnyReady = bgSet && (bgImgReady(bgSet.far) || bgImgReady(bgSet.mid) || bgImgReady(bgSet.near));
+  if (bgAnyReady) {
+    drawBackgroundLayer(bgSet.far, w, h, 0.35);
+    drawBackgroundLayer(bgSet.mid, w, h, 0.8);
+    drawBackgroundLayer(bgSet.near, w, h, 1.4);
+  } else {
+    // 하늘 배경 폴백 (구름 날개는 더 높은 고도 느낌으로 밝게)
+    const isCloudWing = anyPlayerHasWing("cloud");
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    if (isCloudWing) { g.addColorStop(0, "#bfe4ff"); g.addColorStop(1, "#eaf7ff"); }
+    else { g.addColorStop(0, "#3f7fc9"); g.addColorStop(1, "#bfe4ff"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
 
-  // 배경 구름 장식 (패럴랙스)
-  for (let i = 0; i < 5; i++) {
-    const x = ((i * 260 - rt.bgOffset * 0.5) % (w + 300) + (w + 300)) % (w + 300) - 150;
-    drawBgCloud(x, 60 + (i % 3) * 40, 1.1);
+    // 배경 구름 장식 (패럴랙스) - 실제 배경 일러스트가 있을 땐 그림과 겹쳐 지저분해지므로
+    // 그라디언트 폴백일 때만 그린다.
+    for (let i = 0; i < 5; i++) {
+      const x = ((i * 260 - rt.bgOffset * 0.5) % (w + 300) + (w + 300)) % (w + 300) - 150;
+      drawBgCloud(x, 60 + (i % 3) * 40, 1.1);
+    }
   }
 
   // 날씨 연출
@@ -3519,8 +3757,8 @@ function drawObstacle(r, obstacleIdx) {
   ctx.shadowColor = "rgba(255,70,60,0.55)";
   ctx.shadowBlur = 10;
 
-  const img = (OBSTACLE_SPRITE[rt.obstacleTheme] || {})[rt.obstacleTier] &&
-    OBSTACLE_SPRITE[rt.obstacleTheme][rt.obstacleTier][obstacleIdx];
+  const arr = regionObstacleArr();
+  const img = arr && arr[obstacleIdx || 0];
   if (img && img.complete && img.naturalWidth > 0) {
     const targetH = r * 2.1;
     const w = img.naturalWidth * (targetH / img.naturalHeight);
@@ -3570,14 +3808,27 @@ function renderFlightEntities() {
       drawObstacle(drawR, e.obstacleIdx || 0);
     }
     else if (e.type === "bridgestar") drawBridgeStar(e.r);
+    else if (e.type === "hazard") drawHazard(e.r, e.rotation || 0);
     ctx.restore();
   }
+}
+
+function drawHazard(r, rotation) {
+  const img = hazardImgReady();
+  if (!img) return; // 해당 지역 자산이 없으면(로딩 전 등) 조용히 건너뛴다
+  ctx.save();
+  ctx.rotate(rotation);
+  ctx.globalAlpha = 0.85;
+  const d = r * 2;
+  ctx.drawImage(img, -r, -r, d, d);
+  ctx.restore();
 }
 
 // 실제 몬스터 스프라이트(assets/monsters, MONSTER_SPRITE)를 그린다. 로딩 전이거나
 // monsterId가 없는 경우(예: 구버전 호출부)에는 기존 벡터 드로잉으로 대체된다.
 const MONSTER_BATTLE_HEIGHT = 130;
 function drawBattleMonster(b) {
+  if (b.bossId) { drawBossBattleSprite(b); return; }
   const img = b.monsterId && MONSTER_SPRITE[b.monsterId];
   if (img && img.complete && img.naturalWidth > 0) {
     ctx.save();
@@ -3589,6 +3840,41 @@ function drawBattleMonster(b) {
     ctx.restore();
   } else {
     drawMonster(46, !!b.telegraph);
+  }
+}
+
+// 보스(§P2) 전용 렌더링 - 일반 몬스터보다 크게 그리고, 날개지기 배리어 활성 중엔 파란
+// 글로우 + 주변 링으로 "지금은 공격이 안 통한다"를 시각적으로 알려준다.
+function drawBossBattleSprite(b) {
+  const boss = BOSSES[b.bossId];
+  const img = BOSS_SPRITE[b.bossId];
+  const targetH = boss.battleHeight || 200;
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.save();
+    if (b.shieldActive) {
+      ctx.shadowColor = "#8ec9ff";
+      ctx.shadowBlur = 40;
+    } else {
+      ctx.shadowColor = "#ff2d4d";
+      ctx.shadowBlur = b.telegraph ? 34 : 16;
+    }
+    const dw = img.naturalWidth * (targetH / img.naturalHeight);
+    ctx.drawImage(img, -dw / 2, -targetH / 2, dw, targetH);
+    ctx.restore();
+  } else {
+    drawMonster(70, !!b.telegraph);
+  }
+  if (b.shieldActive) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(142,201,255,0.75)";
+    ctx.lineWidth = 4;
+    ctx.shadowColor = "#8ec9ff";
+    ctx.shadowBlur = 20;
+    const pulse = 1 + Math.sin(performance.now() / 180) * 0.05;
+    ctx.beginPath();
+    ctx.arc(0, 0, (targetH / 2 + 18) * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
