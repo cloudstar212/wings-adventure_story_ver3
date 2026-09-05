@@ -2,18 +2,27 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<!-- 폰으로 접속하면 조작이 불편한 이 데스크톱 화면 대신 mobile/index.html로 즉시
-     이동시킨다(사용자 확정) - 화면이 그려지기 전에 최대한 빨리 실행되도록 head 맨 앞에 배치. -->
-<script>
-if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-  location.replace("mobile/index.html");
-}
-</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 프로젝트 루트에 있는 game.js/style.css/assets를 그대로 재사용하기 위한 트릭:
+     base href를 상위 폴더로 잡으면 이 파일 안의 "game.js", "assets/...", "room/..." 같은
+     (mobile/ 접두어 없는) 상대 경로가 전부 프로젝트 루트 기준으로 풀린다. 데스크톱 버전과
+     로직/에셋을 100% 공유하고, mobile/ 폴더에는 이 폴더 전용 파일(style.css, mobile.js)만 둔다. -->
+<base href="../">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111111">
 <title>전설의 날개 대모험</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="mobile/style.css">
 </head>
 <body>
+<div id="mobile-rotate-overlay">
+  <div class="mobile-rotate-box">
+    <div class="mobile-rotate-icon">📱</div>
+    <p>기기를 가로로 돌려주세요</p>
+  </div>
+</div>
 <div id="app">
 
   <!-- ============ ROOM SCENE ============ -->
@@ -128,6 +137,10 @@ if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
     <div id="inventory-bar-flight-p2" class="inventory-bar hidden"></div>
 
     <div id="battle-banner" class="hidden">⚔️ 몬스터 조우! 공격 키를 눌러 공격하세요!</div>
+
+    <!-- 모바일 전용: 물리 키보드가 없으므로 화면 터치 버튼으로 차지 공격을 대신한다
+         (사용자 확정 - 누르고 있으면 차지, 떼면 발사, mobile/mobile.js가 연결). -->
+    <button id="btn-mobile-attack" class="mobile-attack-btn" aria-label="공격">⚔️</button>
   </div>
 
   <!-- ============ MODALS ============ -->
@@ -270,5 +283,6 @@ if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
 </div>
 
 <script src="game.js"></script>
+<script src="mobile/mobile.js"></script>
 </body>
 </html>

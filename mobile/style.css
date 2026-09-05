@@ -1,0 +1,78 @@
+/* 모바일 웹 전용 오버라이드 - style.css 뒤에 로드되어 필요한 부분만 덮어쓴다.
+   game.js/style.css는 데스크톱과 100% 공유(별도 수정 없음). */
+
+/* 핀치줌/더블탭줌/풀다운 새로고침/롱프레스 컨텍스트 메뉴 등 게임 진행을 방해하는
+   기본 제스처를 막는다. 모달 내부(overflow-y:auto)는 세로 스크롤이 필요하므로
+   touch-action을 canvas/버튼류에만 좁게 적용한다. */
+html, body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+#canvas, .hotspot, .btn {
+  touch-action: none;
+}
+.modal-box {
+  touch-action: pan-y;
+}
+
+/* 1인 플레이만 지원(사용자 확정) - 인원수 선택에서 "2명" 자체를 숨긴다. */
+#btn-pc-2 { display: none !important; }
+
+/* 터치 타겟이 데스크톱 마우스 클릭보다 커야 하므로 주요 버튼을 한 단계 키운다. */
+.btn { min-height: 44px; font-size: 16px; }
+.btn.small { min-height: 38px; }
+
+/* 공격 버튼(§모바일) - 우측 하단 고정, 엄지로 누르기 쉬운 크기. 전투 중이 아닐 때는
+   mobile.js가 .active를 빼서 옅게 표시한다(눌러도 startCharge가 내부적으로 무시함). */
+.mobile-attack-btn {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(224, 80, 58, 0.55);
+  color: #fff;
+  font-size: 34px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.mobile-attack-btn.active {
+  background: rgba(224, 80, 58, 0.9);
+  box-shadow: 0 0 24px rgba(224, 80, 58, 0.7);
+}
+.mobile-attack-btn:active { transform: scale(0.94); }
+
+/* 세로 모드 회전 유도 오버레이 - 방/상점 배경 원본이 3:2 가로 비율이라 세로에서는
+   레터박스가 너무 커져 조작이 불편하다(사용자 확정, 가로 모드 전용으로 운영). */
+#mobile-rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #111;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.mobile-rotate-box { padding: 24px; }
+.mobile-rotate-icon { font-size: 56px; margin-bottom: 12px; animation: mobile-rotate-spin 1.8s ease-in-out infinite; }
+.mobile-rotate-box p { font-size: 18px; }
+@keyframes mobile-rotate-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+@media (orientation: portrait) {
+  #mobile-rotate-overlay { display: flex; }
+  #app { display: none; }
+}
