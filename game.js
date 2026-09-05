@@ -184,7 +184,7 @@ function bgImgReady(img) { return img && img.complete && img.naturalWidth > 0; }
 // 2026-09 - 원본 시트(obstacle_{wingId}.png, 5열x2행)를 scripts/extract_obstacles_regions.py로
 // 잘라낸 결과). 구 6테마×소/중/대 180장 체계는 폐기 - 19장 캠페인 진행 자체가 난이도 곡선을
 // 담당하므로 크기 변형이 더 이상 필요 없다(§Ch). 히트박스는 지역과 무관하게 고정 반지름 하나.
-const OBSTACLE_RADIUS = 32;
+const OBSTACLE_RADIUS = 46; // 크기 상향(사용자 확정, §신규-크기)
 const OBSTACLE_SPEED_MUL = 0.65; // 장애물 접근 속도 하향(사용자 확정, §신규-날개5)
 const OBSTACLE_ICONS_PER_REGION = 10;
 const OBSTACLE_SPRITE = {};
@@ -248,7 +248,7 @@ const BOSSES = {
   // 두 방식을 번갈아 쓴다(사용자 확정).
   wing_guardian: {
     id: "wing_guardian", name: "날개지기", sprite: "assets/elite/boss_wing_guardian.png",
-    battleHeight: 190, hpMul: 3, pattern: "zigzag", speedMul: 1.6, // 전체 속도 하향(사용자 확정) 이후에도 일반 수호자보다는 빠르게 유지
+    battleHeight: 380, hpMul: 3, pattern: "zigzag", speedMul: 1.6, // 크기 2배(사용자 확정). 전체 속도 하향 이후에도 일반 수호자보다는 빠르게 유지
     attackKind: "wingkeeper_barrier",
     shieldOnDur: 4, shieldOffDur: 3.5, // 배리어 활성/비활성 주기(초)
   },
@@ -257,7 +257,7 @@ const BOSSES = {
   // 이펙트 자산·패턴을 그대로 재사용해 페이즈마다 특수 공격이 바뀌게 한다.
   angel: {
     id: "angel", name: "천사", sprite: "assets/elite/boss_angel_full.png",
-    battleHeight: 230, hpMul: 5, pattern: "circle", speedMul: 1.0,
+    battleHeight: 460, hpMul: 5, pattern: "circle", speedMul: 1.0, // 크기 2배(사용자 확정)
     phaseAttackKinds: ["slowfield", "obstaclePattern", "feint", "obstacleSummon", "projectile", "projectile"],
     phaseImgPaths: [
       "assets/effects/zone/wind_vortex.png",       // 구름
@@ -789,7 +789,8 @@ function setActiveEquippedWing(wingId) {
 }
 // 2P 모드에서 "지금 화면이 다루는 캐릭터"의 주인공(hero) id. 1P는 항상 hero1.
 function activeCharacterId() {
-  if (state.playerCount !== 2) return "hero1";
+  // effectiveCharacterId()와 동일한 이유로 1인 플레이도 p1CharacterId를 그대로 쓴다(사용자 확정).
+  if (state.playerCount !== 2) return state.p1CharacterId;
   return state.roomActivePlayer === 2 ? state.p2CharacterId : state.p1CharacterId;
 }
 
@@ -1923,7 +1924,9 @@ function effectiveWing(playerIdx) {
   return state.equippedWing;
 }
 function effectiveCharacterId(playerIdx) {
-  if (state.playerCount !== 2) return "hero1";
+  // 1인 플레이도 온보딩에서 고른 캐릭터(state.p1CharacterId)를 그대로 써야 한다 - "hero1"로
+  // 고정하면 hero2/3를 선택해도 항상 hero1로 렌더링/썸네일 표시되는 버그였다(사용자 확정).
+  if (state.playerCount !== 2) return state.p1CharacterId;
   return playerAt(playerIdx || 1).playerIdx === 2 ? state.p2CharacterId : state.p1CharacterId;
 }
 // 구름/하늘 날개처럼 화면 전체에 영향을 주는 연출은 2P 모드에서 두 플레이어 중 한 명이라도
@@ -3912,7 +3915,7 @@ function drawHazard(r, rotation) {
 
 // 실제 몬스터 스프라이트(assets/monsters, MONSTER_SPRITE)를 그린다. 로딩 전이거나
 // monsterId가 없는 경우(예: 구버전 호출부)에는 기존 벡터 드로잉으로 대체된다.
-const MONSTER_BATTLE_HEIGHT = 130;
+const MONSTER_BATTLE_HEIGHT = 260; // 지역 수호자 크기 2배(사용자 확정)
 function drawBattleMonster(b) {
   if (b.bossId) { drawBossBattleSprite(b); return; }
   const img = b.monsterId && MONSTER_SPRITE[b.monsterId];

@@ -455,15 +455,19 @@ html, body {
 #btn-close-wingselect, #btn-close-monkey, #btn-close-weather { margin-top: 16px; }
 
 /* ================= 스토리 챕터 인트로(§Ch) ================= */
-.story-box { max-width: 420px; }
+/* 화면을 최대한 꽉 채우도록 확대(사용자 확정) - 세로로 긴 8컷 만화라 너비가 아니라 높이를
+   기준으로 키운다(img에 max-height, width는 auto로 비율 유지). */
+.story-box { width: auto; max-width: 95vw; max-height: 96vh; padding: 16px 18px; }
 .story-img-wrap {
-  max-height: 65vh;
+  max-height: 82vh;
   overflow-y: auto;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   background: #00000010;
+  display: flex;
+  justify-content: center;
 }
-.story-img-wrap img { display: block; width: 100%; height: auto; }
+.story-img-wrap img { display: block; width: auto; max-width: 100%; height: auto; max-height: 82vh; }
 #btn-story-continue { min-width: 160px; }
 
 /* ================= 턴 정산(코인 -> 보석) 화면 ================= */
@@ -519,9 +523,15 @@ html, body {
   width: 100%;
   aspect-ratio: 3 / 4;
   object-fit: cover;
-  object-position: center 15%;
+  object-position: center 25%; /* 카드 상단(로고/인접 칸) 여백이 덜 보이도록 조금 더 위를 잘라냄(사용자 확정) */
   border-radius: 10px;
   background: #cfe8ff;
+}
+/* 캐릭터 선택 화면(#charselect-list)은 배경 없는 투명 스프라이트라 cover로 자르면 팔다리/
+   날개 끝이 잘려나간다(사용자 확정 버그) - contain으로 전체가 항상 다 보이게 한다. */
+#charselect-list .w-thumb {
+  object-fit: contain;
+  object-position: center center;
 }
 .wing-option .w-name { font-weight: 800; font-size: 13px; }
 .wing-option .w-desc { font-size: 11px; color: #7a5c3e; }
