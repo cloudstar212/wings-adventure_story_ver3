@@ -25,10 +25,18 @@ const WING_MAP = Object.fromEntries(WINGS.map(w => [w.id, w]));
 // 16장 이후(빛의 목소리 정체 공개~엔딩)는 별도 지역 "final"(assets/background/final_*)을 쓴다.
 // img: story/ 폴더의 완성된 8컷 만화(Visual Canon). "계속하기" 버튼과 함께 챕터 진입 시 표시된다.
 // 1챕터 = 비행 1턴을 기본값으로 임시 매핑했다(Bible §21 TBD 항목 - 장당 실제 턴 수는 추후 조정 대상).
+// playable: false인 챕터는 자체 비행 턴이 없는 "순수 스토리" 챕터다(사용자 확정, §7) - 컷신만
+// 자동으로 연속 재생되고 게임이 끼어들지 않는다: 2·3장(첫 전투는 만화로만 표현·빛의 목소리 소개),
+// 12·13장(날개지기 보스전 이후 과거 폭로), 15~17장(전기 날개 획득 이후 정황 설명).
+// 14장은 재생 가능(전기 수호자 전투)이지만 comicTiming:"after"라 컷신이 전투 "앞"이 아니라
+// "뒤"에 뜬다(사용자 확정, §신규-날개7): 13장 컷신 → [컷신 없이 곧장 전기 수호자 전투] → 방 복귀
+// (조용히 대기) → 다음 "비행 출발" 클릭 시 14→15→16→17장 컷신이 한 번에 이어서 재생된 뒤 18장
+// 진입 대기 상태로 정착. pendingDeferredComic가 "아직 못 보여준 14장 컷신"을 들고 있다가
+// 그 클릭 시점에 열어준다.
 const CHAPTERS = [
   { n: 1,  title: "깨진 봉인",             wingId: "basic",    img: "story/chapter-01-broken-seal-v3.png" },
-  { n: 2,  title: "첫 번째 전투",          wingId: "basic",    img: "story/chapter-02-first-wing.png" },
-  { n: 3,  title: "빛의 목소리",           wingId: "basic",    img: "story/chapter-03-voice-of-light.png" },
+  { n: 2,  title: "첫 번째 전투",          wingId: "basic",    img: "story/chapter-02-first-wing.png", playable: false },
+  { n: 3,  title: "빛의 목소리",           wingId: "basic",    img: "story/chapter-03-voice-of-light.png", playable: false },
   { n: 4,  title: "구름 날개",             wingId: "cloud",    img: "story/chapter-04-cloud-wings-v5.png" },
   { n: 5,  title: "황금 날개",             wingId: "golden",   img: "story/chapter-05-golden-wings.png" },
   { n: 6,  title: "무지개 날개",           wingId: "rainbow",  img: "story/chapter-06-rainbow-wings.png" },
@@ -37,12 +45,15 @@ const CHAPTERS = [
   { n: 9,  title: "일곱 번째 날개",        wingId: "water",    img: "story/chapter-09-seventh-wing-v2.png" },
   { n: 10, title: "날개지기의 경고",       wingId: "water",    img: "story/chapter-10-wingkeepers-warning-v3.png" },
   { n: 11, title: "날개지기 보스전",       wingId: "water",    img: "story/chapter-11-wingkeeper-boss-battle-remake-v2.png", boss: "wing_guardian" },
-  { n: 12, title: "숨겨졌던 과거",         wingId: "water",    img: "story/chapter-12-hidden-past-remake.png" },
-  { n: 13, title: "누구를 믿을 것인가",    wingId: "water",    img: "story/chapter-13-whom-to-trust-v3.png" },
-  { n: 14, title: "마지막 봉인지",         wingId: "electric", img: "story/chapter-14-final-seal.png" },
-  { n: 15, title: "전설의 날개 8/8",       wingId: "electric", img: "story/chapter-15-legendary-wings-8-of-8-v2.png" },
-  { n: 16, title: "빛의 목소리의 정체",    wingId: "final",    img: "story/chapter-16-identity-of-the-light-v2.png" },
-  { n: 17, title: "통제된 평화",           wingId: "final",    img: "story/chapter-17-controlled-peace.png" },
+  { n: 12, title: "숨겨졌던 과거",         wingId: "water",    img: "story/chapter-12-hidden-past-remake.png", playable: false },
+  { n: 13, title: "누구를 믿을 것인가",    wingId: "water",    img: "story/chapter-13-whom-to-trust-v3.png", playable: false },
+  // 14장: 13장 컷신 직후 곧바로 전기 수호자 전투로 이어진다(컷신 없이, 사용자 확정 §신규-날개7) -
+  // comicTiming:"after"는 이 챕터의 컷신을 전투 "전"이 아니라 "후"(15~17장과 묶어서, 다음
+  // "비행 출발" 클릭 시)에 보여주라는 뜻. pendingDeferredComic이 실제 지연 처리를 담당한다.
+  { n: 14, title: "마지막 봉인지",         wingId: "electric", img: "story/chapter-14-final-seal.png", comicTiming: "after" },
+  { n: 15, title: "전설의 날개 8/8",       wingId: "electric", img: "story/chapter-15-legendary-wings-8-of-8-v2.png", playable: false },
+  { n: 16, title: "빛의 목소리의 정체",    wingId: "final",    img: "story/chapter-16-identity-of-the-light-v2.png", playable: false },
+  { n: 17, title: "통제된 평화",           wingId: "final",    img: "story/chapter-17-controlled-peace.png", playable: false },
   { n: 18, title: "여덟 날개의 전투",      wingId: "final",    img: "story/chapter-18-battle-of-eight-wings-v4.png", boss: "angel" },
   { n: 19, title: "모두에게 날개를",       wingId: "final",    img: "story/chapter-19-wings-for-everyone.png" },
 ];
@@ -75,15 +86,17 @@ const WING_ANCHOR2 = {
   water:    { ax: 0.6067, ay: 0.5443 },
   electric: { ax: 0.6228, ay: 0.5488 },
 };
+// 2026-09 디자인 갱신(아기 캐릭터 변경, design/캐릭터 및 날개 디자인_주인공3_흰배경.png 재추출)으로
+// 좌표 재계산됨 - assets/sprites/char3/anchors.json 참고(scripts/extract_new_characters.py).
 const WING_ANCHOR3 = {
-  basic:    { ax: 0.6881, ay: 0.4964 },
-  golden:   { ax: 0.7103, ay: 0.5063 },
-  cloud:    { ax: 0.6902, ay: 0.5183 },
-  rainbow:  { ax: 0.6344, ay: 0.5054 },
-  sky:      { ax: 0.6901, ay: 0.5174 },
-  flame:    { ax: 0.7241, ay: 0.4921 },
-  water:    { ax: 0.6787, ay: 0.5021 },
-  electric: { ax: 0.7005, ay: 0.5034 },
+  basic:    { ax: 0.5899, ay: 0.6321 },
+  golden:   { ax: 0.5959, ay: 0.6418 },
+  cloud:    { ax: 0.587,  ay: 0.6419 },
+  rainbow:  { ax: 0.5802, ay: 0.6272 },
+  sky:      { ax: 0.5975, ay: 0.6387 },
+  flame:    { ax: 0.611,  ay: 0.6309 },
+  water:    { ax: 0.5958, ay: 0.6244 },
+  electric: { ax: 0.58,   ay: 0.6172 },
 };
 
 // 주인공 3종. hero1은 기존 플랫 에셋 경로를 그대로 쓰고(spriteDir:null), hero2/3는 새로
@@ -172,6 +185,7 @@ function bgImgReady(img) { return img && img.complete && img.naturalWidth > 0; }
 // 잘라낸 결과). 구 6테마×소/중/대 180장 체계는 폐기 - 19장 캠페인 진행 자체가 난이도 곡선을
 // 담당하므로 크기 변형이 더 이상 필요 없다(§Ch). 히트박스는 지역과 무관하게 고정 반지름 하나.
 const OBSTACLE_RADIUS = 32;
+const OBSTACLE_SPEED_MUL = 0.65; // 장애물 접근 속도 하향(사용자 확정, §신규-날개5)
 const OBSTACLE_ICONS_PER_REGION = 10;
 const OBSTACLE_SPRITE = {};
 WINGS.forEach(w => {
@@ -234,7 +248,7 @@ const BOSSES = {
   // 두 방식을 번갈아 쓴다(사용자 확정).
   wing_guardian: {
     id: "wing_guardian", name: "날개지기", sprite: "assets/elite/boss_wing_guardian.png",
-    battleHeight: 190, hpMul: 3, pattern: "zigzag", speedMul: 2.2,
+    battleHeight: 190, hpMul: 3, pattern: "zigzag", speedMul: 1.6, // 전체 속도 하향(사용자 확정) 이후에도 일반 수호자보다는 빠르게 유지
     attackKind: "wingkeeper_barrier",
     shieldOnDur: 4, shieldOffDur: 3.5, // 배리어 활성/비활성 주기(초)
   },
@@ -243,7 +257,7 @@ const BOSSES = {
   // 이펙트 자산·패턴을 그대로 재사용해 페이즈마다 특수 공격이 바뀌게 한다.
   angel: {
     id: "angel", name: "천사", sprite: "assets/elite/boss_angel_full.png",
-    battleHeight: 230, hpMul: 5, pattern: "circle", speedMul: 1.3,
+    battleHeight: 230, hpMul: 5, pattern: "circle", speedMul: 1.0,
     phaseAttackKinds: ["slowfield", "obstaclePattern", "feint", "obstacleSummon", "projectile", "projectile"],
     phaseImgPaths: [
       "assets/effects/zone/wind_vortex.png",       // 구름
@@ -451,6 +465,7 @@ function defaultState() {
     playerCount: 1,
     chapter: 1,              // 현재 진행 중인 스토리 챕터(1~19, §Ch)
     chapterImageShown: false, // 이번 챕터의 스토리 컷신을 이미 봤는지(방 진입 시 1회만 표시)
+    pendingDeferredComic: null, // comicTiming:"after"인 챕터의 컷신 번호(다음 "비행 출발" 클릭까지 대기, §신규-날개7)
     money: 2,
     coins: 2,
     gems: 2,
@@ -541,29 +556,40 @@ function switchScene(name) {
   if (name === "room") {
     fitStage("room");
     renderRoom();
-    // 스토리 인트로와 보석함 위기 모달이 동시에 뜨지 않도록, 인트로를 띄웠으면 위기 모달은
-    // 인트로를 닫을 때(closeChapterIntro) 이어서 처리한다.
-    if (!maybeShowChapterIntro()) {
-      if (state.mailFlags.gemboxDangerQueued) {
-        state.mailFlags.gemboxDangerQueued = false;
-        saveState();
-        startGemboxDanger();
-      }
-    }
+    settleRoomEntry();
   }
   if (name === "shop") { fitStage("shop"); renderShop(); }
   if (name === "flight") { /* handled by startFlight() */ }
 }
 
-/* ---------------------------- 스토리 챕터 인트로(§Ch) ---------------------------- */
-// 온보딩(인원수/캐릭터/음료/날개 선택)이 전부 끝난 뒤에만 표시한다 - 최초 부팅 시의
-// switchScene("room")은 onboarding 모달들이 뜨기 전에 먼저 호출되므로 hasStartedBefore로
-// 게이팅해 그 시점엔 뜨지 않게 막는다. true를 반환하면 이번 room 진입에서 인트로를 띄웠다는 뜻.
-function maybeShowChapterIntro() {
-  if (!state.hasChosenPlayerCount || !state.hasStartedBefore) return false;
-  if (state.chapterImageShown) return false;
-  openChapterIntro();
-  return true;
+/* ---------------------------- 스토리 챕터 인트로(§Ch, §신규-날개3/6) ---------------------------- */
+// "재생 불가"(순수 스토리) 챕터는 자체 비행 턴이 없다 - 컷신만 연속으로 보여주고 자동으로 다음
+// 챕터로 넘어간다(CHAPTERS[].playable===false, 사용자 확정: 2·3장/12·13장/14·16·17장 묶음).
+// "재생 가능" 챕터의 컷신은 더 이상 방 진입 시 자동으로 뜨지 않는다 - "비행 출발" 버튼을 누른
+// 순간에만 보여주고(§3), 닫으면 바로 그 턴의 비행이 시작된다(pendingFlightStart).
+function isPlayableChapter(n) {
+  return chapterData(n).playable !== false;
+}
+let pendingFlightStart = false;
+let showingDeferredComic = null; // 지금 열려 있는 게 지연된(comicTiming:"after") 컷신이면 그 장 번호
+
+// 방 진입/온보딩 완료/챕터 전환마다 호출: 재생 불가 챕터가 남아 있으면 컷신을 이어서 자동
+// 재생하고, 재생 가능한 챕터에 도달하면(또는 이미 다 봤으면) 평소 방 상태로 정착한다.
+// 지연된 컷신(pendingDeferredComic)이 있으면 여기서는 아무 것도 하지 않는다 - "비행 출발"을
+// 눌러야만 열린다(§신규-날개7, 아래 btn-start-flight 참고).
+function settleRoomEntry() {
+  if (!state.hasChosenPlayerCount || !state.hasStartedBefore) return;
+  if (state.pendingDeferredComic) return;
+  if (!isPlayableChapter(state.chapter) && !state.chapterImageShown) {
+    pendingFlightStart = false;
+    openChapterIntro();
+    return;
+  }
+  if (state.mailFlags.gemboxDangerQueued) {
+    state.mailFlags.gemboxDangerQueued = false;
+    saveState();
+    startGemboxDanger();
+  }
 }
 function openChapterIntro() {
   const ch = chapterData(state.chapter);
@@ -571,12 +597,41 @@ function openChapterIntro() {
   document.getElementById("story-img").src = ch.img;
   document.getElementById("modal-story").classList.remove("hidden");
 }
+// pendingDeferredComic으로 미뤄둔 컷신을 연다(§신규-날개7) - state.chapter가 아니라 그 챕터
+// 번호(n)를 직접 받는다: 이미 전투가 끝나 현재 챕터는 그 다음(예: 15)으로 넘어가 있기 때문.
+function openDeferredComic(n) {
+  showingDeferredComic = n;
+  const ch = chapterData(n);
+  document.getElementById("story-title").textContent = `${ch.n}장. ${ch.title}`;
+  document.getElementById("story-img").src = ch.img;
+  document.getElementById("modal-story").classList.remove("hidden");
+}
 document.getElementById("btn-story-continue").addEventListener("click", () => {
+  document.getElementById("modal-story").classList.add("hidden");
+  if (showingDeferredComic != null) {
+    // 지연됐던 컷신을 닫았다 - 원래 그 챕터가 재생 불가였다면(§신규-날개7 그룹의 15~17장처럼)
+    // settleRoomEntry()가 기존 묶어보기 로직으로 자연스럽게 이어서 보여준다.
+    showingDeferredComic = null;
+    state.pendingDeferredComic = null;
+    saveState();
+    settleRoomEntry();
+    return;
+  }
+  const wasPlayable = isPlayableChapter(state.chapter);
   state.chapterImageShown = true;
   saveState();
-  document.getElementById("modal-story").classList.add("hidden");
-  // 인트로 때문에 미뤄뒀던 보석함 위기 이벤트가 있으면 이제 처리한다.
-  if (state.mailFlags.gemboxDangerQueued) {
+  if (!wasPlayable) {
+    // 재생 불가 챕터의 컷신을 봤다 = 바로 다음 챕터로 넘어가 이어본다(§7 묶어보기).
+    advanceChapter();
+    saveState();
+    settleRoomEntry();
+    return;
+  }
+  // 재생 가능한 챕터의 컷신은 "비행 출발" 클릭으로만 열린다(§3) - 닫히면 바로 비행 시작.
+  if (pendingFlightStart) {
+    pendingFlightStart = false;
+    startFlight();
+  } else if (state.mailFlags.gemboxDangerQueued) {
     state.mailFlags.gemboxDangerQueued = false;
     saveState();
     startGemboxDanger();
@@ -799,6 +854,24 @@ document.getElementById("btn-skip-rest").addEventListener("click", () => {
 
 document.getElementById("btn-start-flight").addEventListener("click", () => {
   if (restRemaining > 0) return;
+  // 미뤄둔 컷신(§신규-날개7, 예: 14장)이 있으면 이번 클릭에서 그것부터 연속으로 보여준다.
+  if (state.pendingDeferredComic) {
+    openDeferredComic(state.pendingDeferredComic);
+    return;
+  }
+  // comicTiming:"after"인 챕터(§신규-날개7)는 컷신 없이 곧장 비행을 시작한다 - 그 컷신은
+  // advanceChapter()가 pendingDeferredComic에 담아뒀다가 다음 챕터 이후 묶어서 보여준다.
+  if (chapterData(state.chapter).comicTiming === "after") {
+    startFlight();
+    return;
+  }
+  // 이번 챕터 컷신을 아직 안 봤으면(§3, 재생 가능 챕터는 여기서만 컷신을 띄운다) 먼저 보여주고,
+  // 닫히면 btn-story-continue 핸들러가 이어서 startFlight()를 호출한다.
+  if (!state.chapterImageShown) {
+    pendingFlightStart = true;
+    openChapterIntro();
+    return;
+  }
   startFlight();
 });
 
@@ -941,7 +1014,7 @@ function finishFirstEntryFlow() {
   state.hasStartedBefore = true;
   saveState();
   renderRoom();
-  maybeShowChapterIntro(); // 온보딩 직후 1장 인트로 표시(§Ch)
+  settleRoomEntry(); // 1장은 재생 가능 챕터라 여기선 아무 것도 안 뜸 - "비행 출발" 클릭 시 표시(§3)
 }
 
 // 최초 진입 흐름(§2,3): 인원수 선택 -> 캐릭터 선택(1P, 2P면 P1/P2 순서) -> 기존 음료/날개
@@ -1323,9 +1396,9 @@ function useItem(id, playerIdx) {
       toast(`💎 ${tag}보석 +1!`);
       break;
     case "monkey": {
-      const unowned = WINGS.filter(w => !state.ownedWings.includes(w.id));
-      if (unowned.length === 0) {
-        toast("🐒 이미 모든 날개를 보유하고 있어 효과가 없습니다.");
+      const selectable = WINGS.filter(w => state.ownedWings.includes(w.id) && w.id !== effectiveWing(pIdx));
+      if (selectable.length === 0) {
+        toast("🐒 지금 바꿔 쓸 수 있는 다른 보유 날개가 없습니다.");
         return;
       }
       inv.monkey -= 1;
@@ -1351,8 +1424,12 @@ function openMonkeyModal(playerIdx) {
   const list = document.getElementById("monkey-wing-list");
   list.innerHTML = "";
   const charId = effectiveCharacterId(pIdx);
-  const unowned = WINGS.filter(w => !state.ownedWings.includes(w.id));
-  unowned.forEach(w => {
+  // 스토리 진행에 따라 보유 날개가 늘수록 선택지도 함께 늘어난다(사용자 확정, §신규-날개3) -
+  // "미보유 날개 체험용"에서 "보유 날개 중 임시로 바꿔 쓰는 로드아웃"으로 변경. 지금 이미
+  // 장착 중인 날개는 골라도 의미가 없으니 목록에서 제외한다.
+  const current = effectiveWing(pIdx);
+  const selectable = WINGS.filter(w => state.ownedWings.includes(w.id) && w.id !== current);
+  selectable.forEach(w => {
     const div = document.createElement("div");
     div.className = "wing-option";
     div.innerHTML = `<img class="w-thumb" src="${wingThumbSrc(w.id, charId)}" alt="${w.name}"><div class="w-name">${w.name}</div><div class="w-desc">${w.desc}</div>`;
@@ -1941,6 +2018,11 @@ function endFlightTurn() {
 // 진행하지 않는다 - 19장 이후 엔딩 처리(빈 날개 전시대 등)는 별도 단계에서 구현한다.
 function advanceChapter() {
   if (state.chapter < CHAPTER_COUNT) {
+    // comicTiming:"after"인 챕터(§신규-날개7, 예: 14장)를 막 완료했다면, 그 컷신을 아직 못 봤으니
+    // pendingDeferredComic에 담아둔다 - 다음 "비행 출발" 클릭 때 열리고, 그 뒤로 재생 불가
+    // 챕터들이 이어서 묶여 보인다.
+    const prev = chapterData(state.chapter);
+    if (prev.comicTiming === "after") state.pendingDeferredComic = prev.n;
     state.chapter += 1;
     state.chapterImageShown = false;
   }
@@ -2066,7 +2148,7 @@ document.getElementById("btn-debug-next-chapter").addEventListener("click", () =
   advanceChapter();
   saveState();
   renderRoom();
-  maybeShowChapterIntro();
+  settleRoomEntry();
 });
 document.getElementById("btn-debug-goto-elite").addEventListener("click", () => {
   if (currentScene !== "flight" || inBattle()) return;
@@ -2500,12 +2582,15 @@ function updateEntities(dt) {
     }
     const moveScale = e.scale != null ? e.scale : 1;
 
+    // 장애물은 전체 스크롤 속도에 추가로 배율을 곱해 더 천천히 다가오게 한다(사용자 확정,
+    // §신규-날개5) - 코인/돈/이동방해 엔티티는 기존 속도 그대로 유지.
+    const entScroll = e.type === "obstacle" ? scrollSpeed * OBSTACLE_SPEED_MUL : scrollSpeed;
     if (e.zigzag) {
-      e.baseX -= scrollSpeed * moveScale * dt;
+      e.baseX -= entScroll * moveScale * dt;
       const elapsed = (performance.now() - e.born) / 1000;
       e.x = e.baseX + Math.sin(elapsed * e.zigzagFreq + e.zigzagPhase) * e.zigzagAmp;
     } else {
-      e.x -= scrollSpeed * moveScale * dt;
+      e.x -= entScroll * moveScale * dt;
     }
     e.y += (e.vy || 0) * dt;
     e.y = clamp(e.y, 30, vh() - 30);
@@ -2628,6 +2713,7 @@ function spawnFloatText(x, y, text, color) {
 // 없어 전투 자체가 없다. 체력/공격력은 몬스터별 개별 수치 없이 기존 diff 공식을 그대로 쓴다.
 // MONSTER_HP_MULTIPLIER: 공격력/이동속도는 그대로 두고 체력만 일괄 6배로 올린다.
 const MONSTER_HP_MULTIPLIER = 6;
+const ELITE_WANDER_SPEED_MUL = 0.55; // 지역 수호자/보스 배회 이동속도 하향(사용자 확정, §신규-날개5)
 // 1인 플레이는 기존처럼 몬스터 1마리, 2인 플레이는 매 턴 2마리(§5) - 서로 독립된 HP/위치/
 // 공격 상태를 가지며 한 마리가 죽어도 나머지는 그대로 행동한다(rt.battles 배열).
 function monsterCountForPlayerCount() {
@@ -2691,7 +2777,7 @@ function startBattle(monsterEntity, slotIndex, slotCount) {
     // 실제 피격 판정은 targetPlayerIdx와 무관하게 rt.players 전원을 대상으로 한다(playerHitAt).
     targetPlayerIdx: (slotCount > 1 && slotIndex === 1 && rt.players[1]) ? 2 : 1,
     wanderT: rand(0, Math.PI * 2),
-    wanderSeed: rand(0.85, 1.15),
+    wanderSeed: rand(0.85, 1.15) * ELITE_WANDER_SPEED_MUL, // 지역 수호자/보스 이동속도 하향(사용자 확정, §신규-날개5)
     vx: null,
     vy: null,
     telegraph: 0,
@@ -3589,18 +3675,18 @@ function drawWarningMark(x, y, r) {
   ctx.restore();
 }
 
-// 배경 레이어 1장을 canvas(w x h) 전체를 덮도록 확대해 그리되, 가장자리가 절대 비지 않도록
-// 여유분(18%)을 두고 그 여유 범위 안에서만 좌우로 완만하게 왕복시킨다(사인파, speedMul이
-// 클수록 빠르게 - 레이어별로 다르게 줘 원근감 있는 패럴랙스를 만든다). 이음매 없는 반복
-// 타일이 아니라 한 장짜리 완성 일러스트라 무한 스크롤 대신 이 방식을 쓴다.
+// 배경 레이어 1장을 canvas(w x h) 전체를 덮도록 확대한 뒤, 오른쪽에서 왼쪽으로 계속 흐르도록
+// dw(레이어 실제 표시 너비) 간격으로 이어붙여 타일링한다(사용자 확정: 오른쪽→왼쪽 이동,
+// speedMul이 클수록 빨리 흐름 - near(1.4) > mid(0.8) > far(0.35) 순으로 호출해 원근감을 만든다).
 function drawBackgroundLayer(img, w, h, speedMul) {
   if (!bgImgReady(img)) return;
-  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight) * 1.18;
+  const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
   const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
-  const slackX = dw - w;
-  const baseX = (w - dw) / 2; // = -slackX/2
-  const offsetX = slackX > 0 ? (slackX / 2) * Math.sin(rt.bgOffset * speedMul * 0.02) : 0;
-  ctx.drawImage(img, baseX + offsetX, (h - dh) / 2, dw, dh);
+  const y = (h - dh) / 2;
+  const offset = (rt.bgOffset * speedMul) % dw;
+  for (let x = -offset; x < w; x += dw) {
+    ctx.drawImage(img, x, y, dw, dh);
+  }
 }
 
 function render() {
@@ -3655,7 +3741,7 @@ function render() {
   // 은신 구름 (구름 날개)
   for (const c of rt.clouds) drawBgCloud(c.x, c.y, c.r / 20);
 
-  if (inBattle()) { renderBattleCage(); rt.battles.forEach(renderBattle); }
+  if (inBattle()) rt.battles.forEach(renderBattle); // 철창 연출 삭제(사용자 확정, §신규-날개4)
   else renderFlightEntities();
 
   rt.players.forEach(renderPlayer);
@@ -3945,23 +4031,6 @@ function renderSlowField(sf) {
   ctx.restore();
 }
 
-// 전투 중 철창 연출(§5): 몬스터가 2마리(2P)여도 화면 전체에 한 번만 그린다(renderBattle은
-// 몬스터별로 여러 번 불리므로 여기서 분리했다).
-function renderBattleCage() {
-  const w = vw(), h = vh();
-  ctx.fillStyle = "rgba(0,0,0,0.2)";
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "rgba(20,14,8,0.8)";
-  ctx.lineWidth = 8;
-  for (let x = 20; x < w; x += 46) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(60,45,25,0.9)";
-  ctx.lineWidth = 14;
-  ctx.beginPath(); ctx.moveTo(0, 40); ctx.lineTo(w, 40); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, h - 40); ctx.lineTo(w, h - 40); ctx.stroke();
-}
-
 function renderBattle(b) {
   if (b.zone) renderZone(b.zone);
   if (b.slowField) renderSlowField(b.slowField);
@@ -3973,15 +4042,18 @@ function renderBattle(b) {
   drawBattleMonster(b);
   ctx.restore();
 
-  // 몬스터 체력바
+  // 몬스터 체력바 - 스프라이트 높이(보스는 battleHeight로 훨씬 큼, §P2)에 맞춰 머리 위
+  // 여유를 두고 띄운다. 고정 오프셋(80px)을 그대로 쓰면 큰 보스일수록 얼굴을 가린다(실측 확인).
+  const spriteH = b.bossId ? (BOSSES[b.bossId].battleHeight || 200) : MONSTER_BATTLE_HEIGHT;
+  const barY = b.y - spriteH / 2 - 26;
   const barW = 160;
   ctx.fillStyle = "#222";
-  ctx.fillRect(b.x - barW / 2, b.y - 80, barW, 14);
+  ctx.fillRect(b.x - barW / 2, barY, barW, 14);
   ctx.fillStyle = "#ff4b4b";
-  ctx.fillRect(b.x - barW / 2, b.y - 80, barW * clamp(b.hp / b.maxHp, 0, 1), 14);
-  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(b.x - barW / 2, b.y - 80, barW, 14);
+  ctx.fillRect(b.x - barW / 2, barY, barW * clamp(b.hp / b.maxHp, 0, 1), 14);
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(b.x - barW / 2, barY, barW, 14);
 
-  if (b.telegraph) drawWarningMark(b.x, b.y - 112, 16);
+  if (b.telegraph) drawWarningMark(b.x, barY - 32, 16);
 
   renderMonsterProjectiles(b);
   renderMinions(b);
