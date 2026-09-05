@@ -34,6 +34,22 @@ def white_bg_alpha(region_arr, region_diff):
     return np.where(bg_connected, soft, 255).astype(np.uint8)
 
 
+def clear_halo_interior(out_img):
+    """후광(halo) 안쪽은 별 꼭짓점 사이 틈이 너무 얇아 white_bg_alpha의 테두리 flood-fill이
+    못 뚫고 들어가 흰색 그대로 남는다(사용자 확정 버그) - 후광 안쪽 한 점(500,142, 최종 크롭
+    기준)에서 시작해 "밝거나 이미 투명한" 픽셀만 따라가는 별도 flood-fill로 마무리 정리한다.
+    골든 링/머리카락은 diff가 커서 자연스럽게 경계가 된다."""
+    arr = np.array(out_img)
+    rgb = arr[:, :, :3].astype(int)
+    a = arr[:, :, 3]
+    brightness_ok = (np.abs(rgb - 255).sum(axis=2) < 40) | (a < 100)
+    labeled, _ = ndimage.label(brightness_ok, structure=np.ones((3, 3)))
+    seed_label = labeled[142, 500]
+    region = labeled == seed_label
+    arr[..., 3] = np.where(region, 0, a)
+    return Image.fromarray(arr, "RGBA")
+
+
 def main():
     img = Image.open(SRC).convert("RGB").crop(CROP_BOX)
     arr = np.array(img)
@@ -46,7 +62,9 @@ def main():
     bx0, by0, bx1, by1 = bbox
     bx0, by0 = max(0, bx0 - pad), max(0, by0 - pad)
     bx1, by1 = min(out.width, bx1 + pad), min(out.height, by1 + pad)
-    out.crop((bx0, by0, bx1, by1)).save(OUT)
+    out = out.crop((bx0, by0, bx1, by1))
+    out = clear_halo_interior(out)
+    out.save(OUT)
     print("saved", OUT, Image.open(OUT).size)
 
 
