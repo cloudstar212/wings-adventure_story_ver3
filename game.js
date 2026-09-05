@@ -4038,8 +4038,17 @@ function renderMonsterProjectiles(b) {
     // 바위/가시 전부 동일 - 사용자 확정 실측). pr.angle은 "몬스터→플레이어" 방향인데 그대로
     // rotate()하면 이미 왼쪽을 향한 그림이 한 번 더 뒤집혀 반대 방향(오른쪽)을 보게 된다
     // (비대칭 그림은 상하로도 뒤집힌 것처럼 보임) - pr.imgPath(진짜 이펙트 그림)에만
-    // Math.PI를 보정한다. pr.img(장애물 필드 그림, 좌우 대칭에 가까움)는 기존 그대로 둔다.
-    ctx.rotate(pr.imgPath ? pr.angle - Math.PI : pr.angle);
+    // Math.PI를 보정한다.
+    // pr.img(assets/obstacles/{region}) 쪽은 반대로 문제였다 - 이 그림들은 용/인어/불사조
+    // 같은 정면 캐릭터 일러스트라 애초에 "날아가는 방향"이라는 개념이 없다. castBurst5x3/
+    // castFanSpread/castStaggeredLine(§신규-기본공격)처럼 pr.angle에 실제 목표 각도를 담아
+    // 그대로 rotate()하면, 각도에 따라 캐릭터가 옆으로 눕거나 거꾸로(180도) 뒤집힌 것처럼
+    // 보였다(사용자 확정 버그 - "단일 발사"/"일렬로 발사" 둘 다 이 경로). 정적 장애물 회피
+    // 화면(drawObstacle)에서도 회전 없이 그대로 세워서 쓰므로, 여기서도 궤적과 무관하게 항상
+    // 똑바로 세워서 그린다 - 단, orbit 대형(castRingRotate/castRotatingCross)의 회전 연출만은
+    // 의도된 것이라 그대로 유지한다.
+    if (pr.imgPath) ctx.rotate(pr.angle - Math.PI);
+    else if (pr.motion === "orbit") ctx.rotate(pr.angle);
     ctx.drawImage(img, -img.naturalWidth * s / 2, -img.naturalHeight * s / 2, img.naturalWidth * s, img.naturalHeight * s);
     ctx.restore();
   }
