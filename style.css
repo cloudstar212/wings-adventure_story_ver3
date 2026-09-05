@@ -211,23 +211,6 @@ html, body {
   letter-spacing: 0.2px;
 }
 
-.equipped-badge {
-  position: absolute;
-  width: 8.63%;
-  height: 14.65%;
-  border-radius: 12px;
-  box-shadow: 0 0 0 3px #ffd23f, 0 0 22px 6px rgba(255,210,63,0.75);
-  pointer-events: none;
-  transition: left 0.25s ease, top 0.25s ease;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  color: #ffd23f;
-  font-size: 15px;
-  text-shadow: 0 0 6px rgba(0,0,0,0.8);
-  padding: 3px;
-}
-
 .room-footer {
   position: absolute;
   bottom: 0; left: 0; right: 0;
@@ -455,19 +438,53 @@ html, body {
 #btn-close-wingselect, #btn-close-monkey, #btn-close-weather { margin-top: 16px; }
 
 /* ================= 스토리 챕터 인트로(§Ch) ================= */
-/* 화면을 최대한 꽉 채우도록 확대(사용자 확정) - 세로로 긴 8컷 만화라 너비가 아니라 높이를
-   기준으로 키운다(img에 max-height, width는 auto로 비율 유지). */
+/* 각 장 만화는 8컷(2열x4행) 한 장짜리 이미지다 - 그대로 보여주면 너무 작아서(사용자 확정)
+   4컷(상단 2행/하단 2행)씩 반으로 나눠 화면 가득 채우고, 그림책처럼 우측 버튼으로 다음
+   페이지(하단 4컷)로 넘어가게 한다. aspect-ratio는 이미지 로드 시 JS가 인라인으로 지정
+   (naturalWidth / (naturalHeight/2)) - wrap이 그 비율을 유지한 채 뷰포트에 최대한 꽉 찬다. */
 .story-box { width: auto; max-width: 95vw; max-height: 96vh; padding: 16px 18px; }
 .story-img-wrap {
-  max-height: 82vh;
-  overflow-y: auto;
+  position: relative;
+  max-width: 90vw;
+  max-height: 78vh;
+  overflow: hidden;
   border-radius: 12px;
   margin-bottom: 12px;
   background: #00000010;
-  display: flex;
-  justify-content: center;
 }
-.story-img-wrap img { display: block; width: auto; max-width: 100%; height: auto; max-height: 82vh; }
+.story-img-wrap img {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 200%; /* 전체 8컷 이미지 높이 - wrap 높이(=4컷)의 2배 */
+  transform: translateY(0%);
+  transition: transform 0.25s ease;
+}
+.story-img-wrap img.story-page-2 { transform: translateY(-50%); }
+.story-nextpage-btn {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: var(--accent);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+  transition: transform 0.15s ease;
+}
+.story-nextpage-btn:hover { transform: translateY(-50%) scale(1.08); }
+.story-page-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 10px; }
+.story-page-dots span { width: 8px; height: 8px; border-radius: 50%; background: #d8c3a0; }
+.story-page-dots span.active { background: var(--accent); }
 #btn-story-continue { min-width: 160px; }
 
 /* ================= 턴 정산(코인 -> 보석) 화면 ================= */
@@ -521,15 +538,20 @@ html, body {
 .wing-option.equipped { background: #ffe6c2; border-color: var(--accent); }
 .wing-option .w-thumb {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  /* 날개 카드 원본(384x512)은 상단 1/3 정도가 하늘 배경+이름 배너라 원래 비율(3/4)로는
+     캐릭터가 항상 카드 하단쪽에 쏠려 보였다(사용자 확정 버그). 카드 박스 자체를 원본보다
+     좀 더 납작하게 만들어 상단만 잘라내면(object-position 100%) 캐릭터가 세로 중앙에 온다. */
+  aspect-ratio: 384 / 362;
   object-fit: cover;
-  object-position: center 25%; /* 카드 상단(로고/인접 칸) 여백이 덜 보이도록 조금 더 위를 잘라냄(사용자 확정) */
+  object-position: center 100%;
   border-radius: 10px;
   background: #cfe8ff;
 }
 /* 캐릭터 선택 화면(#charselect-list)은 배경 없는 투명 스프라이트라 cover로 자르면 팔다리/
-   날개 끝이 잘려나간다(사용자 확정 버그) - contain으로 전체가 항상 다 보이게 한다. */
+   날개 끝이 잘려나간다(사용자 확정 버그) - contain으로 전체가 항상 다 보이게 하고, 위 날개
+   카드용 크롭 비율은 여기엔 적용하지 않는다(원래 3:4 그대로 유지). */
 #charselect-list .w-thumb {
+  aspect-ratio: 3 / 4;
   object-fit: contain;
   object-position: center center;
 }
