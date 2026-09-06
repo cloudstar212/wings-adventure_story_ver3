@@ -59,6 +59,18 @@ html, body {
    공격 버튼은 항상 보이므로 몰라도 되는 안내다. */
 #battle-banner { display: none !important; }
 
+/* 만화 컷신을 화면 전체에 꽉 차게(사용자 확정) - 8컷 이미지를 4페이지(2컷씩)로 보여주는
+   mobile/mobile.js의 로직과 짝을 이룬다. 이미지 자체 높이는 400%(4등분)로 바꾸고,
+   실제 노출 크기는 매번 JS가 뷰포트 기준으로 재계산해 인라인 스타일로 넣으므로,
+   데스크톱의 90vw/78vh 상한을 없애 그 계산값이 그대로 적용되게 한다. 제목/점/버튼도
+   축소해 이미지에 최대한 공간을 양보한다. */
+.story-img-wrap img { height: 400%; }
+.story-box { padding: 8px 12px; max-width: 99vw; max-height: 98vh; }
+.story-box h2 { font-size: 14px; margin-bottom: 6px; }
+.story-img-wrap { max-width: 97vw; max-height: none; margin-bottom: 6px; }
+.story-page-dots { margin-bottom: 6px; }
+#btn-story-continue { min-height: 32px; padding: 6px 14px; font-size: 13px; min-width: 100px; }
+
 /* 공격 버튼(§모바일) - 우측 하단 고정, 엄지로 누르기 쉬운 크기. 전투 중이 아닐 때는
    mobile.js가 .active를 빼서 옅게 표시한다(눌러도 startCharge가 내부적으로 무시함). */
 .mobile-attack-btn {

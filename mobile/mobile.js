@@ -40,6 +40,79 @@ renderRoom = function () {
   __originalRenderRoom();
 };
 
+// 방 화면 좌우 검은 여백 제거(사용자 확정) - fitStage()가 배경(1536x1024, 3:2)을
+// object-fit:contain처럼 Math.min으로 맞춰서, 그보다 가로로 넓은 폰 화면에서는 좌우에
+// 여백이 남았다. Math.max로 바꿔 화면을 항상 꽉 채우고(object-fit:cover), 넘치는 위/
+// 아래는 .stage-wrap의 overflow:hidden으로 잘라낸다. 상점(shop)은 요청 범위 밖이라
+// 그대로 둔다.
+const __originalFitStage = fitStage;
+fitStage = function (name) {
+  if (name !== "room") { __originalFitStage(name); return; }
+  const wrap = document.getElementById("room-stage-wrap");
+  const fit = document.getElementById("room-stage-fit");
+  if (!wrap || !fit) return;
+  const ww = wrap.clientWidth, wh = wrap.clientHeight;
+  if (ww === 0 || wh === 0) return;
+  const scale = Math.max(ww / STAGE_NATURAL_W, wh / STAGE_NATURAL_H);
+  const w = STAGE_NATURAL_W * scale, h = STAGE_NATURAL_H * scale;
+  fit.style.width = `${w}px`;
+  fit.style.height = `${h}px`;
+  fit.style.left = `${(ww - w) / 2}px`;
+  fit.style.top = `${(wh - h) / 2}px`;
+};
+// game.js 자신의 init()이 이 스크립트가 로드되기 전에 이미 fitStage("room")을 옛 버전
+// (여백 있는 contain)으로 한 번 호출해 둔 상태라, 그 결과가 resize 이벤트 없이는 절대
+// 갱신되지 않는다(실측 확인 - 재할당만으로는 반영 안 됨). 지금 이 시점엔 방 화면 DOM이
+// 이미 레이아웃까지 끝나 있으므로, 새 버전으로 즉시 한 번 더 호출해 덮어쓴다.
+fitStage("room");
+
+// 만화 컷신: 데스크톱은 8컷(2열x4행)을 절반씩(4컷/페이지, 2페이지)으로 보여주는데,
+// 폰 가로모드처럼 옆으로 넓은 화면에서는 4컷(2x2, 정사각형에 가까움)이 레터박스를
+// 크게 남긴다. 반대로 1행(2컷)만 보여줬을 때의 가로세로 비율을 실제 이미지 크기로
+// 계산해보면 약 1.85~2.25:1로, 일반적인 폰 가로모드 화면 비율(약 1.8~2.2:1)과 거의
+// 일치한다 - 그래서 1행씩 4페이지(사용자 확정 - "최소 2컷씩" 요건도 만족하는 동시에
+// 화면을 가장 꽉 채우는 선택)로 재구성한다. game.js의 openStoryModal/renderStoryPage를
+// 통째로 새 버전으로 재할당(부분 수정이 아니라 완전 대체) - storyPageIndex 값 자체는
+// game.js의 "계속하기" 버튼 가드(if(storyPageIndex===0)return)만 만족시키도록
+// 0(첫 페이지)/1(그 외)로만 맞춰준다.
+const MOBILE_STORY_PAGES = 4;
+let __mobileStoryPage = 0;
+function __mobileRenderStoryPage() {
+  document.getElementById("story-img").style.transform =
+    `translateY(-${(__mobileStoryPage * 100) / MOBILE_STORY_PAGES}%)`;
+  document.querySelectorAll("#story-page-dots span").forEach((dot, i) => {
+    dot.classList.toggle("active", i === __mobileStoryPage);
+  });
+  const isLast = __mobileStoryPage === MOBILE_STORY_PAGES - 1;
+  document.getElementById("btn-story-nextpage").classList.toggle("hidden", isLast);
+  document.getElementById("btn-story-continue").classList.toggle("hidden", !isLast);
+  storyPageIndex = isLast ? 1 : 0;
+}
+renderStoryPage = __mobileRenderStoryPage;
+openStoryModal = function (ch) {
+  __mobileStoryPage = 0;
+  storyPageIndex = 0;
+  document.getElementById("story-title").textContent = `${ch.n}장. ${ch.title}`;
+  const img = document.getElementById("story-img");
+  img.style.transform = "translateY(0%)";
+  img.onload = () => {
+    const wrap = document.querySelector(".story-img-wrap");
+    const rowAspect = img.naturalWidth / (img.naturalHeight / MOBILE_STORY_PAGES);
+    const maxW = window.innerWidth * 0.98, maxH = window.innerHeight * 0.9;
+    let w = maxW, h = w / rowAspect;
+    if (h > maxH) { h = maxH; w = h * rowAspect; }
+    wrap.style.width = `${w}px`;
+    wrap.style.height = `${h}px`;
+  };
+  img.src = ch.img;
+  __mobileRenderStoryPage();
+  document.getElementById("modal-story").classList.remove("hidden");
+};
+document.getElementById("btn-story-nextpage").addEventListener("click", () => {
+  __mobileStoryPage = Math.min(MOBILE_STORY_PAGES - 1, __mobileStoryPage + 1);
+  __mobileRenderStoryPage();
+});
+
 // 터치 이동을 "그 자리로 순간 이동"(원래 game.js 방식 - 손가락 위치 = 목표 위치)에서
 // "드래그한 만큼 상대적으로 이동"으로 변경(사용자 확정 - 손가락이 캐릭터를 가려 조작이
 // 불편하다는 피드백). game.js의 canvas touchmove 리스너가 먼저 등록돼 있어 이 이벤트에서
