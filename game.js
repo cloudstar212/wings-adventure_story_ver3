@@ -4160,27 +4160,6 @@ function drawWing(wingId, sign) {
   ctx.restore();
 }
 
-function drawSword(wingId) {
-  const style = WING_STYLE[wingId] || WING_STYLE.basic;
-  ctx.save();
-  ctx.shadowColor = style.glow;
-  ctx.shadowBlur = 16;
-  const grad = ctx.createLinearGradient(0, -32, 0, 10);
-  grad.addColorStop(0, "#ffffff");
-  grad.addColorStop(1, style.accent);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(-3, 10); ctx.lineTo(-2.2, -28); ctx.lineTo(0, -35);
-  ctx.lineTo(2.2, -28); ctx.lineTo(3, 10);
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#3a2f22";
-  ctx.fillRect(-7, 8, 14, 5);
-  ctx.fillStyle = "#8a6b3f";
-  ctx.fillRect(-2, 13, 4, 11);
-  ctx.restore();
-}
 
 function drawPlayerBody(wingId) {
   const style = WING_STYLE[wingId] || WING_STYLE.basic;
@@ -4271,25 +4250,56 @@ function renderPlayer(p) {
     drawPlayerBody(wing);
   }
 
-  // 차지 중에는 칼을 휘두르지 않고, 캐릭터가 들고 있는 칼 주변에 에너지가 모이는
-  // 듯한 빛/펄스/미세 떨림만 표현한다(§6). 발사는 renderChargeProjectiles가 그리는
-  // 별도 투사체가 담당하므로 여기서는 "충전 중" 상태만 그린다.
+  // 차지 중에는 칼을 꺼내지 않고, 캐릭터 손 주변에 작은 빛 입자들이 점점 중심으로
+  // 모여들어 하나의 빛 구슬을 이루는 연출로 대체한다(사용자 확정 - 칼 그래픽 제거,
+  // "빛무리가 모인다" 연출). 발사는 renderChargeProjectiles가 그리는 별도 투사체가
+  // 담당하므로 여기서는 "충전 중" 상태만 그린다.
   if (inBattle() && p.charging) {
     const t = clamp(p.chargeT / CHARGE_MAX_TIME, 0, 1);
     const isFull = p.chargeT >= CHARGE_MAX_TIME;
+    const style = WING_STYLE[wing] || WING_STYLE.basic;
+    const s = dh / 90; // 스프라이트 높이에 비례해 이펙트 크기 조정(기존 칼 연출과 동일 기준)
+    const now = performance.now();
+    const pulse = Math.sin(now / (isFull ? 55 : 130)) * 0.5 + 0.5; // 완충일수록 빠르게 맥동
     const jitterMag = isFull ? 3 : 1.5 * t; // 완충에 가까울수록 더 크게 웅웅거림
     const jx = (Math.random() - 0.5) * jitterMag;
     const jy = (Math.random() - 0.5) * jitterMag;
-    const pulse = Math.sin(performance.now() / (isFull ? 55 : 130)) * 0.5 + 0.5; // 완충일수록 빠르게 맥동
 
     ctx.save();
     ctx.translate(dw * 0.3 + jx, -dh * 0.02 + jy);
-    ctx.rotate(-0.9);
-    ctx.scale(dh / 90, dh / 90);
-    ctx.shadowColor = (WING_STYLE[wing] && WING_STYLE[wing].glow) || "#ffffff";
-    ctx.shadowBlur = 6 + t * 22 + pulse * (isFull ? 16 : 6);
-    ctx.globalAlpha = 0.75 + t * 0.25;
-    drawSword(wing);
+    ctx.scale(s, s);
+
+    // 주위를 맴돌던 작은 빛 입자들이 점점 중심으로 빨려들어가는 궤적(완충에
+    // 가까울수록 수렴 주기가 짧아져 더 급박하게 보인다)
+    const particleCount = 6;
+    const cycle = isFull ? 260 : 480 - t * 220;
+    for (let i = 0; i < particleCount; i++) {
+      const phase = ((now / cycle) + i / particleCount) % 1;
+      const angle = (i / particleCount) * Math.PI * 2 - now / 900;
+      const orbitR = (1 - phase) * (16 + t * 8);
+      ctx.globalAlpha = (0.3 + t * 0.5) * (1 - phase);
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = style.glow;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(Math.cos(angle) * orbitR, Math.sin(angle) * orbitR * 0.6, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 중심에 모이는 빛 구슬 본체 - 완충에 가까울수록 크고 밝아진다
+    const coreR = 3 + t * 9 + pulse * (isFull ? 3 : 1);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, coreR);
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(0.55, style.accent);
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.shadowColor = style.glow;
+    ctx.shadowBlur = 8 + t * 20 + pulse * (isFull ? 14 : 5);
+    ctx.globalAlpha = 0.8 + t * 0.2;
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
   }
 
