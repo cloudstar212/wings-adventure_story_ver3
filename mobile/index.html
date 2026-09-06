@@ -17,6 +17,10 @@
 <link rel="manifest" href="mobile/manifest.json">
 <link rel="icon" href="mobile/icons/icon-192.png">
 <link rel="apple-touch-icon" href="mobile/icons/apple-touch-icon.png">
+<script>
+// 안드로이드 크롬의 "앱 설치" 메뉴가 뜨려면 manifest 외에 서비스워커 등록도 필요하다.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("mobile/sw.js");
+</script>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="mobile/style.css">
 </head>

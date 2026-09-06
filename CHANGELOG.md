@@ -2,6 +2,17 @@
 
 이 프로젝트의 변경 사항을 시간순으로 기록합니다. 새로운 변경이 있을 때마다 이 파일 상단에 항목을 추가합니다.
 
+## 2026-09-06 (4) - 안드로이드 "앱 설치" 메뉴가 안 뜨는 문제 수정(서비스워커 추가)
+
+- **`mobile/sw.js` 신설 + 등록**: manifest.json만으로는 안드로이드 크롬이 설치 가능
+  여부를 인정하지 않고(사용자 확정 버그 - "앱 설치"/"홈 화면에 추가" 메뉴 자체가
+  안 보임), fetch 이벤트를 처리하는 서비스워커가 등록돼 있어야 한다는 조건이 하나
+  더 있었음. 오프라인 캐싱 등은 하지 않고 조건 충족용 최소 뼈대만 추가(요청은 전부
+  네트워크로 그대로 통과) - `mobile/index.html`의 `<base href="../">` 관례에 맞춰
+  `mobile/sw.js`로 등록, 스코프가 자동으로 `mobile/`에만 한정됨
+- 로컬 서버로 등록 상태 확인(`navigator.serviceWorker.getRegistrations()`) - scope
+  `.../mobile/`, activeState `activated`로 정상 등록 확인
+
 ## 2026-09-06 (3) - 모바일 PWA(홈 화면 앱) 지원 추가
 
 - **`mobile/manifest.json` 신설**: `display:"standalone"`, `orientation:"landscape"`로
