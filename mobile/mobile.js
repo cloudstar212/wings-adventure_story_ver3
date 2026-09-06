@@ -40,31 +40,11 @@ renderRoom = function () {
   __originalRenderRoom();
 };
 
-// 방 화면 좌우 검은 여백 제거(사용자 확정) - fitStage()가 배경(1536x1024, 3:2)을
-// object-fit:contain처럼 Math.min으로 맞춰서, 그보다 가로로 넓은 폰 화면에서는 좌우에
-// 여백이 남았다. Math.max로 바꿔 화면을 항상 꽉 채우고(object-fit:cover), 넘치는 위/
-// 아래는 .stage-wrap의 overflow:hidden으로 잘라낸다. 상점(shop)은 요청 범위 밖이라
-// 그대로 둔다.
-const __originalFitStage = fitStage;
-fitStage = function (name) {
-  if (name !== "room") { __originalFitStage(name); return; }
-  const wrap = document.getElementById("room-stage-wrap");
-  const fit = document.getElementById("room-stage-fit");
-  if (!wrap || !fit) return;
-  const ww = wrap.clientWidth, wh = wrap.clientHeight;
-  if (ww === 0 || wh === 0) return;
-  const scale = Math.max(ww / STAGE_NATURAL_W, wh / STAGE_NATURAL_H);
-  const w = STAGE_NATURAL_W * scale, h = STAGE_NATURAL_H * scale;
-  fit.style.width = `${w}px`;
-  fit.style.height = `${h}px`;
-  fit.style.left = `${(ww - w) / 2}px`;
-  fit.style.top = `${(wh - h) / 2}px`;
-};
-// game.js 자신의 init()이 이 스크립트가 로드되기 전에 이미 fitStage("room")을 옛 버전
-// (여백 있는 contain)으로 한 번 호출해 둔 상태라, 그 결과가 resize 이벤트 없이는 절대
-// 갱신되지 않는다(실측 확인 - 재할당만으로는 반영 안 됨). 지금 이 시점엔 방 화면 DOM이
-// 이미 레이아웃까지 끝나 있으므로, 새 버전으로 즉시 한 번 더 호출해 덮어쓴다.
-fitStage("room");
+// (한때 방 화면을 object-fit:cover처럼 꽉 채우도록 fitStage를 바꿔봤으나, 배경
+// 원본(1536x1024, 3:2)과 폰 화면 비율이 안 맞아 상하가 잘리는 부작용이 있었고, 폰마다
+// 화면 비율이 다 달라 특정 기기에 맞춰 원본을 다시 그리는 것도 현실적이지 않다는 결론
+// (사용자 확정) - 원래 방식(object-fit:contain, 좌우 여백은 남지만 잘리거나 늘어나지
+// 않음)으로 되돌림. 즉 game.js의 fitStage를 그대로 사용 - 이 파일에서 손대지 않는다.
 
 // 만화 컷신: 데스크톱은 8컷(2열x4행)을 절반씩(4컷/페이지, 2페이지)으로 보여주는데,
 // 폰 가로모드처럼 옆으로 넓은 화면에서는 4컷(2x2, 정사각형에 가까움)이 레터박스를
