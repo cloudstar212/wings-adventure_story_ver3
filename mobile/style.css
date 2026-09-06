@@ -47,6 +47,18 @@ html, body {
 .room-buttons { gap: 8px; }
 .room-buttons .btn { min-height: 36px; padding: 7px 12px; font-size: 13px; }
 
+/* 방 화면 UI 단순화(사용자 확정) - game.js가 getElementById로 계속 참조하므로
+   요소 자체는 지우지 않고 화면에서만 숨긴다(지우면 addEventListener가 null에서
+   터져 스크립트 전체가 멈춘다). "상점으로 나가기"는 문 그림(#obj-door)을 눌러도
+   똑같이 상점으로 이동하므로 기능은 그대로 남아 있음. */
+#btn-goto-shop, #btn-change-controls { display: none !important; }
+.hud-money-item, .hud-gems-item { display: none !important; }
+
+/* 비행 중 "몬스터 조우! 공격 키를 눌러 공격하세요!" 안내 문구 제거(사용자 확정) -
+   물리 키보드가 없는 폰에서는 "공격 키"라는 문구 자체가 맞지 않고, 화면 우측 하단
+   공격 버튼은 항상 보이므로 몰라도 되는 안내다. */
+#battle-banner { display: none !important; }
+
 /* 공격 버튼(§모바일) - 우측 하단 고정, 엄지로 누르기 쉬운 크기. 전투 중이 아닐 때는
    mobile.js가 .active를 빼서 옅게 표시한다(눌러도 startCharge가 내부적으로 무시함). */
 .mobile-attack-btn {

@@ -16,6 +16,60 @@ currentViewScale = function () {
   return __originalCurrentViewScale() * MOBILE_ZOOM_OUT;
 };
 
+// 위 카메라 줌과 별개로 "캐릭터만 조금 더" 작게 보이도록(사용자 확정) renderPlayer를
+// 통째로 감싸서, 캐릭터 자신의 기준점(p.x,p.y)을 축으로 살짝 더 축소해서 그린다.
+// 몬스터·장애물 크기는 그대로 두고 캐릭터 렌더링에만 적용되는 조정이라, PLAYER_BATTLE_
+// HEIGHT 같은 game.js의 const를 손댈 필요 없이 렌더 함수 자체를 재할당해 구현했다.
+const __originalRenderPlayer = renderPlayer;
+const MOBILE_CHAR_EXTRA_SHRINK = 0.88;
+renderPlayer = function (p) {
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(MOBILE_CHAR_EXTRA_SHRINK, MOBILE_CHAR_EXTRA_SHRINK);
+  ctx.translate(-p.x, -p.y);
+  __originalRenderPlayer(p);
+  ctx.restore();
+};
+
+// 방에 도착하면 항상 휴식 없이 바로 비행 가능하도록(사용자 확정 - "휴식 중" 자체를
+// 없애 달라는 요청). renderRoom()이 매번 restRemaining을 읽어 UI/버튼 비활성화 여부를
+// 정하므로, 그 직전에 0으로 되돌려 "휴식 중이 아닌 상태"만 보이게 만든다.
+const __originalRenderRoom = renderRoom;
+renderRoom = function () {
+  restRemaining = 0;
+  __originalRenderRoom();
+};
+
+// 터치 이동을 "그 자리로 순간 이동"(원래 game.js 방식 - 손가락 위치 = 목표 위치)에서
+// "드래그한 만큼 상대적으로 이동"으로 변경(사용자 확정 - 손가락이 캐릭터를 가려 조작이
+// 불편하다는 피드백). game.js의 canvas touchmove 리스너가 먼저 등록돼 있어 이 이벤트에서
+// 여전히 절대좌표로 p.tx/ty를 먼저 설정하지만, 이 파일은 game.js보다 나중에 로드되어 같은
+// 엘리먼트에 나중에 등록되므로 캡처링 단계가 아닌 한 항상 나중에 실행된다 - 그 값을 아래
+// 로직으로 덮어써서 최종적으로는 상대 이동만 적용된다.
+let __mobileDragTouch = null; // 드래그 시작 시점의 손가락 위치(CSS px)
+let __mobileDragPlayer = null; // 드래그 시작 시점의 캐릭터 위치(월드 px)
+canvas.addEventListener("touchstart", (e) => {
+  if (state.playerCount !== 1) return;
+  const p = rt.players[0];
+  const t = e.touches[0];
+  if (!p || !t) return;
+  __mobileDragTouch = { x: t.clientX, y: t.clientY };
+  __mobileDragPlayer = { x: p.x, y: p.y };
+}, { passive: true });
+canvas.addEventListener("touchmove", (e) => {
+  if (state.playerCount !== 1 || !__mobileDragTouch || !__mobileDragPlayer) return;
+  const p = rt.players[0];
+  const t = e.touches[0];
+  if (!p || !t) return;
+  const dx = (t.clientX - __mobileDragTouch.x) * currentViewScale();
+  const dy = (t.clientY - __mobileDragTouch.y) * currentViewScale();
+  p.tx = clamp(__mobileDragPlayer.x + dx, 24, vw() - 24);
+  p.ty = clamp(__mobileDragPlayer.y + dy, 24, vh() - 24);
+}, { passive: false });
+function __mobileEndDrag() { __mobileDragTouch = null; __mobileDragPlayer = null; }
+canvas.addEventListener("touchend", __mobileEndDrag);
+canvas.addEventListener("touchcancel", __mobileEndDrag);
+
 (function () {
   const btn = document.getElementById("btn-mobile-attack");
   if (!btn) return;
