@@ -393,13 +393,6 @@ const ITEM_KEYS_2P_P2 = ["1", "2", "3", "4"];
 const DIGIT_TO_ITEM_INDEX_P1 = { Digit7: 0, Digit8: 1, Digit9: 2, Digit0: 3 };
 const SAVE_KEY = "wingsAdventureSave_v1";
 
-// ---------------------------- 임시 QA 테스트 모드(§신규-날개2, 사용자 요청) ----------------------------
-// 날개 획득 방식 변경(트로피->지역 수호자 처치) 검증을 빠르게 반복하기 위한 임시 장치.
-// true인 동안 플레이어는 목숨이 전혀 줄지 않는다(장애물/몬스터 공격 모두 무효, loseLife/
-// resolveMonsterHit 맨 앞에서 막음). 검증이 끝나면 false로 되돌리거나 이 플래그 및
-// index.html/style.css의 관련 버튼 3개(.debug-btn)를 함께 제거할 것.
-const DEBUG_MODE = true;
-
 // 우편 편지 목록. apply()는 편지를 읽는 즉시 실행된다.
 const LETTERS = [
   {
@@ -772,7 +765,6 @@ function grantRandomItem(playerIdx) {
 // 전환해 이동/공격/아이템/충돌에서 제외하고, 살아있는 다른 플레이어는 계속 플레이한다. 사망한
 // 플레이어는 다음 방 화면 진입 시(endFlightTurn -> reviveDeadPlayers) 부활한다.
 function loseLife(amount, reason, playerIdx) {
-  if (DEBUG_MODE) return false; // QA 테스트 모드: 목숨 무적(§신규-날개2)
   const g = wallet(playerIdx) || state;
   const p = playerAt(playerIdx || 1);
   if (p.dead) return false; // 이미 사망한 플레이어는 추가 피해를 받지 않는다
@@ -2175,30 +2167,6 @@ document.getElementById("btn-weather").addEventListener("click", () => {
   document.getElementById("modal-weather").classList.remove("hidden");
 });
 
-// 테스트용: 턴이 끝나기 전에 즉시 턴을 종료하고 방으로 돌아간다.
-document.getElementById("btn-exit-flight").addEventListener("click", () => {
-  if (currentScene !== "flight") return;
-  endFlightTurn();
-});
-
-// QA 테스트 버튼 3개(§신규-날개2) - DEBUG_MODE 주석 참조.
-document.getElementById("btn-debug-next-chapter").addEventListener("click", () => {
-  advanceChapter();
-  saveState();
-  renderRoom();
-  settleRoomEntry();
-});
-document.getElementById("btn-debug-goto-elite").addEventListener("click", () => {
-  if (currentScene !== "flight" || inBattle()) return;
-  startTurnEndBattle();
-});
-document.getElementById("btn-debug-skip-boss").addEventListener("click", () => {
-  if (!inBattle()) return;
-  for (const b of [...rt.battles]) {
-    b.shieldActive = false; // 날개지기 배리어 중이어도 즉시 승리 처리되도록 무시
-    applyChargeProjectileHit(b, { x: b.x, y: b.y, dmg: 999999, angle: 0, stage: "full" }, 1);
-  }
-});
 document.querySelectorAll(".weather-choice").forEach(btn => {
   btn.addEventListener("click", () => {
     rt.weather = btn.dataset.weather;
@@ -2569,12 +2537,6 @@ function updatePlayerMovement(p, dt) {
 
 function update(dt) {
   if (rt.paused) return; // 아이템(원숭이) 사용 등으로 일시정지된 경우 전체 로직 정지
-
-  if (DEBUG_MODE) {
-    const battling = inBattle();
-    document.getElementById("btn-debug-goto-elite").classList.toggle("hidden", battling);
-    document.getElementById("btn-debug-skip-boss").classList.toggle("hidden", !battling);
-  }
 
   for (const p of rt.players) updatePlayerMovement(p, dt);
   // 자석은 더 이상 시간제가 아니라 콤보가 리셋될 때 resetCombo()에서 함께 꺼진다.
@@ -3034,7 +2996,6 @@ function applyChargeProjectileHit(b, pr, ownerIdx) {
 // 게임오버)한다. 몸통박치기/투사체/장판 등 모든 공격 패턴(§6-3)이 이 함수를 공유한다.
 // hitIdx는 playerHitAt()이 찾아준 "실제로 맞은 플레이어"(1|2, 생략 시 1P).
 function resolveMonsterHit(b, hitIdx) {
-  if (DEBUG_MODE) return; // QA 테스트 모드: 목숨 무적(§신규-날개2)
   const p = playerAt(hitIdx || 1);
   if (p.dead || p.invuln > 0) return; // 사망/무적 중엔 회피(§신규-2 - playerHitAt이 이미 사망자를 걸러주지만 이중 방어)
   if (effectiveWing(p.playerIdx) === "rainbow" && b && !b.shieldUsed) {

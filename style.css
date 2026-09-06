@@ -378,24 +378,6 @@ html, body {
   top: 100px; right: 18px;
 }
 
-.exit-flight-btn {
-  position: absolute;
-  /* top:12px(기존 hud-bar와 같은 줄)에 두면 2P HUD가 추가한 코인/돈/보석 pill들과 겹쳐
-     가려지는 문제가 있어(실측 확인), 그 아래 한 줄로 내렸다(§13, weather-btn과 같은 방식). */
-  top: 54px; left: 18px;
-  opacity: 0.85;
-}
-.exit-flight-btn:hover { opacity: 1; }
-
-/* 임시 QA 테스트 버튼(§신규-날개2) - 검증 끝나면 이 블록과 index.html의 관련 버튼 3개,
-   game.js의 DEBUG_MODE 섹션을 통째로 제거할 것. */
-.debug-btn {
-  position: absolute;
-  top: 96px; left: 18px;
-  opacity: 0.85;
-  pointer-events: auto; /* .hud-bar 등 pointer-events:none 컨테이너 안에 있어도 클릭 가능하도록 */
-}
-.debug-btn:hover { opacity: 1; }
 
 #battle-banner {
   position: absolute;
