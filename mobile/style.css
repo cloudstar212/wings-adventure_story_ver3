@@ -24,6 +24,29 @@ html, body {
 .btn { min-height: 44px; font-size: 16px; }
 .btn.small { min-height: 38px; }
 
+/* 방 화면 상단 HUD(돈/보석/트로피/목숨)와 우측 상단 버튼(캐릭터 변경 등)이 데스크톱
+   기준 크기 그대로라, 폰 가로모드처럼 폭이 좁고 특히 "높이"가 짧은 화면에서는 서로
+   겹쳐 보였다(사용자 확정 버그 - 스크린샷으로 확인: 20/2/3.0 HUD 알약이 "캐릭터 변경"
+   등 우측 버튼과 겹침, 하단 "휴식 중" 알림이 트로피/보석함 진행 배지와 겹침). 폭/높이가
+   고정 px인 요소들이 작은 화면에서 상대적으로 훨씬 크게 차지하는 게 원인이라, 모바일만
+   전반적으로 축소하고 HUD를 중앙이 아닌 좌측 정렬로 바꿔 우측 버튼과의 간격을 확보한다. */
+.hud-bar { justify-content: flex-start; padding: 6px 10px; }
+.hud { gap: 6px; }
+.hud-item { font-size: 11px; padding: 4px 9px; gap: 4px; }
+.room-topright-buttons { gap: 5px; right: 8px; }
+.room-topright-buttons .btn {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
+/* 방 하단 "휴식 중" 알림 + 나가기/비행 버튼 묶음도 같은 이유로 축소 - 짧은 화면에서
+   위쪽 진행 배지(트로피/보석함)와 겹치지 않도록 세로 차지 폭 자체를 줄인다. */
+.room-footer { padding: 6px 0 8px; gap: 5px; }
+#rest-box { padding: 5px 10px; font-size: 12px; gap: 8px; }
+.room-buttons { gap: 8px; }
+.room-buttons .btn { min-height: 36px; padding: 7px 12px; font-size: 13px; }
+
 /* 공격 버튼(§모바일) - 우측 하단 고정, 엄지로 누르기 쉬운 크기. 전투 중이 아닐 때는
    mobile.js가 .active를 빼서 옅게 표시한다(눌러도 startCharge가 내부적으로 무시함). */
 .mobile-attack-btn {
