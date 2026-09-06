@@ -2,6 +2,20 @@
 
 이 프로젝트의 변경 사항을 시간순으로 기록합니다. 새로운 변경이 있을 때마다 이 파일 상단에 항목을 추가합니다.
 
+## 2026-09-06 (3) - 모바일 PWA(홈 화면 앱) 지원 추가
+
+- **`mobile/manifest.json` 신설**: `display:"standalone"`, `orientation:"landscape"`로
+  등록해, 폰에서 "홈 화면에 추가" 후 아이콘으로 실행하면 주소창/탭 표시줄 없이
+  풀스크린 앱처럼 뜨도록 함 - 브라우저 창으로 열면 화면이 좁아진다는 피드백 대응
+- **아이콘 3종 생성**(`scripts/make_app_icon.py` 신설, `mobile/icons/`): 세 주인공
+  (`assets/sprites/{basic,char2,char3}/basic.png`, 배경 제거된 기본 날개 비행
+  스프라이트)을 하늘색 그라디언트 배경 위에 나란히 합성 - 얼굴이 서로 가리지 않도록
+  겹침을 최소화한 가로 대형으로 배치(사용자 확정 - 세 캐릭터 모두 보이게), 각 캐릭터
+  아래 은은한 그림자 추가. manifest용 icon-192/512, iOS용 apple-touch-icon(180) 생성
+- **`mobile/index.html`에 manifest/아이콘 링크 연결**: `<base href="../">` 때문에
+  전부 `mobile/` 접두어 필요 - `link rel="manifest"`, `rel="icon"`,
+  `rel="apple-touch-icon"` 3개 추가
+
 ## 2026-09-06 (2) - 차지 공격 연출을 칼에서 "빛무리 수렴"으로 교체
 
 - **`drawSword()` 제거 + 차지 연출 전면 교체**: 완충까지 캐릭터 손 옆에 칼이 나타나던
