@@ -19,7 +19,9 @@
 <link rel="apple-touch-icon" href="mobile/icons/apple-touch-icon.png">
 <script>
 // 안드로이드 크롬의 "앱 설치" 메뉴가 뜨려면 manifest 외에 서비스워커 등록도 필요하다.
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("mobile/sw.js");
+// sw.js를 루트에 둬서(위 base href 기준 "sw.js" = 루트) 스코프가 "/"가 되게 한다 -
+// mobile/ 서브폴더에만 있으면 game.js 같은 루트 공용 파일 캐시 문제는 못 잡는다.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="mobile/style.css">
@@ -69,11 +71,12 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("mobile/sw.js
         <button class="hotspot" id="obj-door" title="상점으로 나가기"
           style="left:0.65%;top:12.70%;width:18.88%;height:55.66%"></button>
 
-        <!-- 배지 위치를 각 오브젝트 핫스팟(obj-gembox/obj-trophy/obj-fridge)의 정중앙 좌표로
-             맞춤(사용자 확정 - 트로피/냉장고는 정중앙, 보석함은 그 결과 자연히 위로 이동). -->
-        <div class="progress-badge" id="gembox-badge" style="left:50.13%;top:57.13%">0/20</div>
-        <div class="progress-badge" id="trophy-badge" style="left:32.39%;top:57.62%">0/10</div>
-        <div class="progress-badge" id="fridge-badge" style="left:71.45%;top:61.04%">음료 0개</div>
+        <!-- 배지 위치 2차 조정(사용자 확정): 보석/트로피는 각 함의 "상단"(핫스팟 top
+             모서리 바로 아래), 음료는 냉장고 정중앙에서 살짝 위로 옮겨 가운데 칸(선반)
+             높이에 맞춤. -->
+        <div class="progress-badge" id="gembox-badge" style="left:50.13%;top:48.5%">0/20</div>
+        <div class="progress-badge" id="trophy-badge" style="left:32.39%;top:47.5%">0/10</div>
+        <div class="progress-badge" id="fridge-badge" style="left:71.45%;top:57%">음료 0개</div>
 
         <div id="inventory-bar-room" class="inventory-bar"></div>
       </div>
