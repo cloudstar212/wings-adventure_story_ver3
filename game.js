@@ -1441,8 +1441,13 @@ function useItem(id, playerIdx) {
       break;
   }
   saveState();
-  updateAllHUD();
-  renderInventoryBar("inventory-bar-room");
+  // 방 화면의 보석함/트로피 배지(gembox-badge/trophy-badge)는 renderRoom() 안에서만
+  // 갱신되는데, 아이템 사용은 이 함수 하나로 room/flight 어디서나 호출돼서 그동안은
+  // updateAllHUD()(상단 HUD)만 갱신하고 그 배지들은 다음 renderRoom() 전까지 예전
+  // 값 그대로 남아 있었다(사용자 확정 버그 - "보석 아이템 써도 방 화면 보석 개수
+  // 실시간 반영 안 됨"). renderRoom()이 그 상위 집합(updateAllHUD/인벤토리바 포함)이라
+  // 통째로 호출 - 방이 화면에 없어도(비행 중) 숨겨진 DOM만 갱신되므로 안전하다.
+  renderRoom();
   renderInventoryBars();
 }
 

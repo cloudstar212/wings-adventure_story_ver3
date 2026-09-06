@@ -10,6 +10,16 @@
 // 반비례해 cameraScale이 작아져 모든 오브젝트가 작게 그려지는데, 배경 채우기(vw()*cameraScale)
 // 는 currentViewScale에 무관하게 항상 캔버스를 꽉 채우도록 서로 상쇄되게 설계되어 있어
 // (game.js 주석 §카메라 줌 참고) 여백/미채움 없이 안전하게 축소할 수 있다.
+// "OOO 등장! 처치해야 방으로 돌아갈 수 있습니다!" 같은 몬스터/보스 등장 토스트 숨김
+// (사용자 확정 - 이미 숨긴 #battle-banner와 별개로, startTurnEndBattle/startBossBattle이
+// toast()로 따로 띄우는 안내문). 메시지 내용으로만 걸러내 다른 토스트(아이템 획득,
+// 우편 등)는 그대로 유지한다.
+const __originalToast = toast;
+toast = function (msg) {
+  if (typeof msg === "string" && msg.includes("등장!")) return;
+  __originalToast(msg);
+};
+
 const __originalCurrentViewScale = currentViewScale;
 const MOBILE_ZOOM_OUT = 1.4; // 값을 올릴수록 더 넓게(작게) 보임 - 필요시 이 숫자만 조정
 currentViewScale = function () {
