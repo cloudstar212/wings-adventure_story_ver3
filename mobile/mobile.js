@@ -1,10 +1,21 @@
-// 모바일 웹 버전 전용 보조 스크립트. game.js(공용 로직) 다음에 로드되며, game.js는
-// 전혀 수정하지 않는다 - 데스크톱 버전과 로직을 100% 공유하기 위함(사용자 확정).
-//
-// 여기서 하는 일은 딱 하나: 물리 키보드가 없는 폰에서 차지 공격(startCharge/releaseCharge,
-// 원래는 state.soloAttackKey 키보드 입력 전용)을 화면 터치 버튼으로 대신 연결하는 것.
-// 1인 모드 강제는 mobile/style.css가 "2명" 버튼을 숨기는 것만으로 충분해서(사용자가 아예
-// 선택할 수 없음) 여기서 별도 상태 조작은 하지 않는다.
+// 모바일 웹 버전 전용 보조 스크립트. game.js(공용 로직) 다음에 로드되며, game.js
+// 파일 자체는 전혀 수정하지 않는다 - 데스크톱 버전과 로직을 100% 공유하기 위함
+// (사용자 확정). game.js가 일반 <script>(모듈 아님)라 최상위 함수 선언은 이 파일과
+// 전역 스코프를 공유하므로, "함수를 통째로 재할당"하는 방식으로만 동작을 바꾼다.
+
+// 비행/전투 화면 카메라 줌 완화 - 캐릭터·몬스터·장애물이 전부 고정 픽셀 크기로 그려지고
+// 그 위에 카메라 배율(cameraScale = 1/currentViewScale)만 곱해지는 구조라, 이 배율 자체가
+// 화면 실제 크기와 무관한 상수라서 화면이 작은 폰에서는 상대적으로 훨씬 크게(사용자 확정
+// 버그 - "화면에 꽉 찬다") 보였다. currentViewScale()이 커지면(더 넓은 "월드"를 노출) 그에
+// 반비례해 cameraScale이 작아져 모든 오브젝트가 작게 그려지는데, 배경 채우기(vw()*cameraScale)
+// 는 currentViewScale에 무관하게 항상 캔버스를 꽉 채우도록 서로 상쇄되게 설계되어 있어
+// (game.js 주석 §카메라 줌 참고) 여백/미채움 없이 안전하게 축소할 수 있다.
+const __originalCurrentViewScale = currentViewScale;
+const MOBILE_ZOOM_OUT = 1.4; // 값을 올릴수록 더 넓게(작게) 보임 - 필요시 이 숫자만 조정
+currentViewScale = function () {
+  return __originalCurrentViewScale() * MOBILE_ZOOM_OUT;
+};
+
 (function () {
   const btn = document.getElementById("btn-mobile-attack");
   if (!btn) return;
